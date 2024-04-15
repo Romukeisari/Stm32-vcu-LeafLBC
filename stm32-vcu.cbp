@@ -167,6 +167,7 @@
 		<Unit filename="src/i3LIM.cpp" />
 		<Unit filename="src/iomatrix.cpp" />
 		<Unit filename="src/isa_shunt.cpp" />
+		<Unit filename="src/leafbms.cpp" />
 		<Unit filename="src/leafinv.cpp" />
 		<Unit filename="src/outlanderCharger.cpp" />
 		<Unit filename="src/outlanderinverter.cpp" />

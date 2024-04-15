@@ -269,7 +269,11 @@ static void Ms100Task(void)
     Param::SetInt(Param::lasterr, ErrorMessage::GetLastError());
     int opmode = Param::GetInt(Param::opmode);
     utils::SelectDirection(selectedVehicle, selectedShifter);
-    utils::CalcSOC();
+    int SHUNT = Param::GetInt(Param::Type);
+        if(SHUNT!= 3) //If we run leaf BMS, no need calculate this as it is given by the LBC
+        {
+            utils::CalcSOC();
+        }
 
     Param::SetInt(Param::cruisestt, selectedVehicle->GetCruiseState());
     Param::SetFloat(Param::FrontRearBal, selectedVehicle->GetFrontRearBalance());
@@ -432,7 +436,11 @@ static void Ms10Task(void)
     selectedVehicle->Task10Ms();
     selectedDCDC->Task10Ms();
     selectedShifter->Task10Ms();
-    if(opmode==MOD_CHARGE) selectedCharger->Task10Ms();
+
+    if(opmode==MOD_CHARGE)
+    {
+        selectedCharger->Task10Ms();
+    }
     if(opmode==MOD_RUN) Param::SetInt(Param::canctr, (Param::GetInt(Param::canctr) + 1) & 0xF);//Update the OI can counter in RUN mode only
 
     //////////////////////////////////////////////////
@@ -455,6 +463,7 @@ static void Ms10Task(void)
         IOMatrix::GetPin(IOMatrix::COOLANTPUMP)->Clear();//Coolant pump off if used
         DigIo::prec_out.Clear();
         Param::SetInt(Param::dir, 0); // shift to park/neutral on shutdown regardless of shifter pos
+        Param::SetInt(Param::INVudc, 0); // set voltage to 0 because now we use it for precharging and don't want a false value here
         selectedVehicle->DashOff();
         StartSig=false;//reset for next time
         if(Param::GetInt(Param::pot) < Param::GetInt(Param::potmin))
@@ -478,10 +487,8 @@ static void Ms10Task(void)
         break;
 
     case MOD_PRECHARGE:
-        if (!chargeMode)
-        {
-            if(selectedInverter != &openInv)DigIo::inv_out.Set();//inverter power on but not if we are in charge mode and not if OI
-        }
+
+        if(selectedInverter != &openInv)DigIo::inv_out.Set();//inverter power on but not if we are in charge mode and not if OI
         IOMatrix::GetPin(IOMatrix::NEGCONTACTOR)->Set();
         IOMatrix::GetPin(IOMatrix::COOLANTPUMP)->Set();
         if(rlyDly!=0) rlyDly--;//here we are going to pause before energising precharge to prevent too many contactors pulling amps at the same time
@@ -815,6 +822,7 @@ static void SetCanFilters()
     if (Param::GetInt(Param::Type) == 0)  ISA::RegisterCanMessages(shunt_can);//select isa shunt
     if (Param::GetInt(Param::Type) == 1)  SBOX::RegisterCanMessages(shunt_can);//select bmw sbox
     if (Param::GetInt(Param::Type) == 2)  VWBOX::RegisterCanMessages(shunt_can);//select vw sbox
+    if (Param::GetInt(Param::Type) == 3)  LeafBMS::RegisterCanMessages(shunt_can);//select Leaf LBC. This is shunt type, because we use the current information the LBC sends
 
     canInterface[1]->RegisterUserMessage(0x601); //CanSDO
     canInterface[0]->RegisterUserMessage(0x601); //CanSDO
@@ -944,6 +952,7 @@ static bool CanCallback(uint32_t id, uint32_t data[2], uint8_t dlc) //This is wh
         if (Param::GetInt(Param::Type) == 0)  ISA::DecodeCAN(id, data);
         if (Param::GetInt(Param::Type) == 1)  SBOX::DecodeCAN(id, data);
         if (Param::GetInt(Param::Type) == 2)  VWBOX::DecodeCAN(id, data);
+        if (Param::GetInt(Param::Type) == 3)  LeafBMS::DecodeCAN(id, data);
         selectedInverter->DecodeCAN(id, data);
         selectedVehicle->DecodeCAN(id, data);
         selectedCharger->DecodeCAN(id, data);

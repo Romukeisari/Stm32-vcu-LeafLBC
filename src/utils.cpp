@@ -262,7 +262,7 @@ float ProcessUdc(int motorSpeed)
 
     if (Param::GetInt(Param::Type) == 0)
     {
-        float udc = ((float)ISA::Voltage)/1000;//get voltage from isa sensor and post to parameter database
+       float udc = Param::GetFloat(Param::INVudc);//get output voltage from inverter sensor and post to parameter database
         Param::SetFloat(Param::udc, udc);
         float udc2 = ((float)ISA::Voltage2)/1000;//get voltage from isa sensor and post to parameter database
         Param::SetFloat(Param::udc2, udc2);
@@ -299,7 +299,7 @@ float ProcessUdc(int motorSpeed)
     else if (Param::GetInt(Param::Type) == 2)
 
     {
-        float udc = ((float)VWBOX::Voltage)*0.5;//get output voltage from sbox sensor and post to parameter database
+        float udc = Param::GetFloat(Param::INVudc);//get output voltage from inverter sensor and post to parameter database
         Param::SetFloat(Param::udc, udc);
         float udc2 = ((float)VWBOX::Voltage2)*0.0625;//get battery voltage from sbox sensor and post to parameter database
         Param::SetFloat(Param::udc2, udc2);
@@ -307,6 +307,13 @@ float ProcessUdc(int motorSpeed)
         Param::SetFloat(Param::udc3, udc3);
         float idc = ((float)VWBOX::Amperes)*0.1;//get current from sbox sensor and post to parameter database
         Param::SetFloat(Param::idc, idc);
+    }
+        else if (Param::GetInt(Param::Type) == 3)
+
+    {
+        float udc = Param::GetFloat(Param::INVudc);//get output voltage from inverter sensor and post to parameter database
+        Param::SetFloat(Param::udc, udc);
+        //idc and udc2 are set in LeafBMS.cpp
     }
     float udclim = Param::GetFloat(Param::udclim);
     float udc = Param::GetFloat(Param::udc);

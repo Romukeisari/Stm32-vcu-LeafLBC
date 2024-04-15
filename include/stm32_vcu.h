@@ -39,6 +39,7 @@
 #include "stm32scheduler.h"
 #include "cansdo.h"
 #include "leafinv.h"
+#include "leafbms.h"
 #include "isa_shunt.h"
 #include "BMW_E39.h"
 #include "BMW_E65.h"

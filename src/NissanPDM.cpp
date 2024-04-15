@@ -30,6 +30,8 @@ static uint16_t Vbatt=0;
 static uint16_t VbattSP=0;
 static uint8_t counter_1db=0;
 static uint8_t counter_1dc=0;
+static uint8_t counter_1d4=0;
+static uint8_t counter_11a_d6=0;
 static uint8_t counter_1f2=0;
 static uint8_t counter_55b=0;
 static uint8_t OBCpwrSP=0;
@@ -40,20 +42,21 @@ static uint8_t OBCVoltStat=0;
 static uint8_t PlugStat=0;
 static uint16_t calcBMSpwr=0;
 
+
 /*Info on running Leaf Gen 2,3 PDM
 IDs required :
-0x1D4
-0x1DB
-0x1DC
-0x1F2
-0x50B
-0x55B
-0x59E
-0x5BC
+0x1D4 VCM (10ms)
+0x1DB LBC (10ms)
+0x1DC LBC (10ms)
+0x1F2 VCM (10ms)
+0x50B VCM (100ms)
+0x55B LBC (100ms)
+0x59E LBC (500ms)
+0x5BC LBC (100ms)
 
 PDM sends:
-0x390
-0x393
+0x390 (100ms)
+0x393 (100ms)
 0x679 on evse plug insert
 
 For QC:
@@ -105,6 +108,7 @@ void NissanPDM::DecodeCAN(int id, uint32_t data[2])
       PlugStat = bytes[5] & 0x0F;
       if(PlugStat == 0x08) PPStat = true; //plug inserted
       if(PlugStat == 0x00) PPStat = false; //plug not inserted
+      Param::SetInt(Param::PlugDet,PPStat);
    }
 }
 
@@ -136,10 +140,163 @@ bool NissanPDM::ControlCharge(bool RunCh, bool ACReq)
 void NissanPDM::Task10Ms()
 {
    int opmode = Param::GetInt(Param::opmode);
+   int SHUNT = Param::GetInt(Param::Type);
 
    uint8_t bytes[8];
 
+if (opmode == MOD_CHARGE) //ONLY send when charging else sent by leafinv.cpp
+    {
+         /////////////////////////////////////////////////////////////////////////////////////////////////
+   // CAN Message 0x1D4: Target Motor Torque
 
+   // Data taken from a gen1 inFrame where the car is starting to
+   // move at about 10% throttle: F70700E0C74430D4
+
+   // Usually F7, but can have values between 9A...F7 (gen1)
+   bytes[0] = 0xF7;
+   // 2016: 6E
+   // outFrame.data.bytes[0] = 0x6E;
+
+   // Usually 07, but can have values between 07...70 (gen1)
+   bytes[1] = 0x07;
+   // 2016: 6E
+   //outFrame.data.bytes[1] = 0x6E;
+
+   // override any torque commands if not in run mode.
+  /* if (opmode != MOD_RUN)
+   {
+      final_torque_request = 0;
+   }
+
+   // Requested torque (signed 12-bit value + always 0x0 in low nibble)
+   if(final_torque_request >= -2048 && final_torque_request <= 2047)
+   {
+      bytes[2] = ((final_torque_request < 0) ? 0x80 : 0) |((final_torque_request >> 4) & 0x7f);
+      bytes[3] = (final_torque_request << 4) & 0xf0;
+   }
+   else
+   {
+      bytes[2] = 0x00;
+      bytes[3] = 0x00;
+   }*/
+
+      bytes[2] = 0x00; //Because we're in charge mode, torque request is ALWAYS 0
+      bytes[3] = 0x00; //Because we're in charge mode, torque request is ALWAYS 0
+   // MSB nibble: Runs through the sequence 0, 4, 8, C
+   // LSB nibble: Precharge report (precedes actual precharge
+   //             control)
+   //   0: Discharging (5%)
+   //   2: Precharge not started (1.4%)
+   //   3: Precharging (0.4%)
+   //   5: Starting discharge (3x10ms) (2.0%)
+   //   7: Precharged (93%)
+   bytes[4] = 0x07 | (counter_1d4 << 6);
+   //bytes[4] = 0x02 | (counter_1d4 << 6);
+   //Bit 2 is HV status. 0x00 No HV, 0x01 HV On.
+
+   counter_1d4++;
+   if(counter_1d4 >= 4) counter_1d4 = 0;
+
+   // MSB nibble:
+   //   0: 35-40ms at startup when gear is 0, then at shutdown 40ms
+   //      after the car has been shut off (6% total)
+   //   4: Otherwise (94%)
+   // LSB nibble:
+   //   0: ~100ms when changing gear, along with 11A D0 b3:0 value
+   //      D (0.3%)
+   //   2: Reverse gear related (13%)
+   //   4: Forward gear related (21%)
+   //   6: Occurs always when gear 11A D0 is 01 or 11 (66%)
+   //outFrame.data.bytes[5] = 0x44;
+   //outFrame.data.bytes[5] = 0x46;
+
+   // 2016 drive cycle: 06, 46, precharge, 44, drive, 46, discharge, 06
+   // 0x46 requires ~25 torque to start
+   //outFrame.data.bytes[5] = 0x46;
+   // 0x44 requires ~8 torque to start
+   bytes[5] = 0x44;
+   //bit 6 is Main contactor status. 0x00 Not on, 0x01 on.
+
+   // MSB nibble:
+   //   In a drive cycle, this slowly changes between values (gen1):
+   //     leaf_on_off.txt:
+   //       5 7 3 2 0 1 3 7
+   //     leaf_on_rev_off.txt:
+   //       5 7 3 2 0 6
+   //     leaf_on_Dx3.txt:
+   //       5 7 3 2 0 2 3 2 0 2 3 2 0 2 3 7
+   //     leaf_on_stat_DRDRDR.txt:
+   //       0 1 3 7
+   //     leaf_on_Driveincircle_off.txt:
+   //       5 3 2 0 8 B 3 2 0 8 A B 3 2 0 8 A B A 8 0 2 3 7
+   //     leaf_on_wotind_off.txt:
+   //       3 2 0 8 A B 3 7
+   //     leaf_on_wotinr_off.txt:
+   //       5 7 3 2 0 8 A B 3 7
+   //     leaf_ac_charge.txt:
+   //       4 6 E 6
+   //   Possibly some kind of control flags, try to figure out
+   //   using:
+   //     grep 000001D4 leaf_on_wotind_off.txt | cut -d' ' -f10 | uniq | ~/projects/leaf_tools/util/hex_to_ascii_binary.py
+   //   2016:
+   //     Has different values!
+   // LSB nibble:
+   //   0: Always (gen1)
+   //   1:  (2016)
+
+   // 2016 drive cycle:
+   //   E0: to 0.15s
+   //   E1: 2 messages
+   //   61: to 2.06s (inverter is powered up and precharge
+   //                 starts and completes during this)
+   //   21: to 13.9s
+   //   01: to 17.9s
+   //   81: to 19.5s
+   //   A1: to 26.8s
+   //   21: to 31.0s
+   //   01: to 33.9s
+   //   81: to 48.8s
+   //   A1: to 53.0s
+   //   21: to 55.5s
+   //   61: 2 messages
+   //   60: to 55.9s
+   //   E0: to end of capture (discharge starts during this)
+
+   // This value has been chosen at the end of the hardest
+   // acceleration in the wide-open-throttle pull, with full-ish
+   // torque still being requested, in
+   //   LeafLogs/leaf_on_wotind_off.txt
+   //outFrame.data.bytes[6] = 0x00;
+
+   // This value has been chosen for being seen most of the time
+   // when, and before, applying throttle in the wide-open-throttle
+   // pull, in
+   //   LeafLogs/leaf_on_wotind_off.txt
+
+   //if (opmode != MOD_CHARGE)  bytes[6] = 0x30;    //brake applied heavilly.
+   //if (opmode == MOD_CHARGE)  bytes[6] = 0xE0;   //charging mode
+    bytes[6] = 0xE0;   //charging mode
+   //In Gen 2 byte 6 is Charge status.
+   //0x8C Charging interrupted
+   //0xE0 Charging
+
+   // Value chosen from a 2016 log
+   //outFrame.data.bytes[6] = 0x61;
+
+   // Value chosen from a 2016 log
+   // 2016-24kWh-ev-on-drive-park-off.pcap #12101 / 15.63s
+   // outFrame.data.bytes[6] = 0x01;
+   //byte 6 brake signal
+
+   // Extra CRC
+   nissan_crc(bytes, 0x85);
+
+   can->Send(0x1D4, (uint32_t*)bytes, 8);//send on can1
+}
+
+
+    if(SHUNT!= 3) //If we run leaf BMS, no need to send these
+    {
    /////////////////////////////////////////////////////////////////////////////////////////////////
    // CAN Message 0x1DB
 
@@ -173,6 +330,7 @@ void NissanPDM::Task10Ms()
 
    can->Send(0x1DB, (uint32_t*)bytes, 8);
 
+    }
    /////////////////////////////////////////////////////////////////////////////////////////////////
    // CAN Message 0x50B
 
@@ -195,7 +353,8 @@ void NissanPDM::Task10Ms()
    //possible problem here as 0x50B is DLC 7....
    can->Send(0x50B, (uint32_t*)bytes, 7);
 
-
+    if(SHUNT != 3) //If we run leaf BMS, no need to send these
+    {
    /////////////////////////////////////////////////////////////////////////////////////////////////
    // CAN Message 0x1DC:
 
@@ -217,7 +376,7 @@ void NissanPDM::Task10Ms()
       counter_1dc = 0;
 
    can->Send(0x1DC, (uint32_t*)bytes, 8);
-
+    }
    /////////////////////////////////////////////////////////////////////////////////////////////////
    // CAN Message 0x1F2: Charge Power and DC/DC Converter Control
 
@@ -285,7 +444,9 @@ void NissanPDM::Task10Ms()
 
 void NissanPDM::Task100Ms()
 {
-
+	int SHUNT = Param::GetInt(Param::Type);
+    if(SHUNT != 3) //If we run leaf BMS, no need to send these
+    {
    // MSGS for charging with pdm
    uint8_t bytes[8];
 
@@ -336,7 +497,7 @@ void NissanPDM::Task100Ms()
 
    can->Send(0x5bc, (uint32_t*)bytes, 8);
 }
-
+}
 
 int8_t NissanPDM::fahrenheit_to_celsius(uint16_t fahrenheit)
 {

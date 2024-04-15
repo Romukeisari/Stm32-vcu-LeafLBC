@@ -19,18 +19,34 @@
 #ifndef LEAFBMS_H
 #define LEAFBMS_H
 #include <stdint.h>
+#include "my_fp.h"
+#include "canhardware.h"
+#include "stm32_can.h"
+#include "params.h"
 
 class LeafBMS
 {
+
+    LeafBMS();
+    ~LeafBMS();
+
+
+
    public:
-      static void DecodeCAN(int id, uint32_t data[2], uint32_t time);
-      static void RequestNextFrame();
+      static void RegisterCanMessages(CanHardware* can);
+	  static void DecodeCAN(int id, uint32_t data[2]);
+      static void RequestNextFrame(CanHardware* can);
       static uint16_t GetCellVoltage(int idx);
       static int GetCellStatus(int idx);
-      static void Send10msMessages();
-      static void Send100msMessages();
-      static bool Alive(uint32_t time);
       static const int NUMCELLS = 96;
+      static float Voltage;
+      static float Voltage2;
+      static int32_t Temperature;
+      static int32_t Amperes;   // Floating point with current in Amperes
+      static int32_t SOC;
+      static int32_t KW;
+      static int32_t KWh;
+
 
    private:
       static uint8_t Crc8ForHCM(int n, uint8_t *msg);
@@ -38,9 +54,7 @@ class LeafBMS
       static int bmsGrpIndex;
       static uint8_t voltBytes[NUMCELLS * 2];
       static uint8_t statusBits[NUMCELLS / 4];
-      static uint8_t run10ms;
-      static uint8_t run100ms;
-      static uint32_t lastRecv;
+
 };
 
 #endif // LEAFBMS_H
