@@ -295,11 +295,11 @@ if (opmode == MOD_CHARGE) //ONLY send when charging else sent by leafinv.cpp
 }
 
 
-    if(SHUNT!= 3) //If we run leaf BMS, no need to send these
-    {
+
    /////////////////////////////////////////////////////////////////////////////////////////////////
    // CAN Message 0x1DB
-
+    if(SHUNT!= 3) //If we run leaf BMS, no need to send these
+    {
    //We need to send 0x1db here with voltage measured by inverter
    //Zero seems to work also on my gen1
    ////////////////////////////////////////////////////////////////
@@ -353,11 +353,11 @@ if (opmode == MOD_CHARGE) //ONLY send when charging else sent by leafinv.cpp
    //possible problem here as 0x50B is DLC 7....
    can->Send(0x50B, (uint32_t*)bytes, 7);
 
-    if(SHUNT != 3) //If we run leaf BMS, no need to send these
-    {
+
    /////////////////////////////////////////////////////////////////////////////////////////////////
    // CAN Message 0x1DC:
-
+    if(SHUNT != 3) //If we run leaf BMS, no need to send these
+    {
    // 0x1dc from lbc. Contains chg power lims and disch power lims.
    // Disch power lim in byte 0 and byte 1 bits 6-7. Just set to max for now.
    // Max charging power in bits 13-20. 10 bit unsigned scale 0.25.Byte 1 limit in kw.
