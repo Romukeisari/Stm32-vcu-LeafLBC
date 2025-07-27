@@ -58,8 +58,8 @@ void LeafBMS::DecodeCAN(int id, uint8_t * data)
 
             if (Param::GetInt(Param::ShuntType) == 0)//Only populate if no shunt is used
             {
-                float BattCur = cur / 2;
-                float BattVoltage = udc / 2;
+                float BattCur = cur * 0.5;
+                float BattVoltage = udc * 0.5;
                 Param::SetFloat(Param::idc, BattCur);
                 if(BattVoltage < 450)Param::SetFloat(Param::udc2, BattVoltage);
                 if(BattVoltage > 200)Param::SetFloat(Param::udcsw, BattVoltage - 20); //Set for precharging based on actual voltage
@@ -120,12 +120,12 @@ void LeafBMS::DecodeCAN(int id, uint8_t * data)
 
                 //Param::SetInt(Param::chgtime, time);
             }
-            
+
 
             //Param::SetInt(Param::soh, soh);
             */
             //0x5BC only contains average battery temperature on ZE0
-            if (LEAF_battery_Type == ZE0_BATTERY) { 
+            if (LEAF_battery_Type == ZE0_BATTERY) {
                 temperature = (bytes[3] - 40);
                 Param::SetInt(Param::BMS_Tavg, temperature);
             }
@@ -134,7 +134,7 @@ void LeafBMS::DecodeCAN(int id, uint8_t * data)
         case 0x5C0: {
             //This temperature only works for 2013-2017 AZE0 LEAF packs, the mux is different on other generations
             if (LEAF_battery_Type == AZE0_BATTERY) {
-                if ((bytes[0] >> 6) == 1) {  // Mux signalling MAX value 
+                if ((bytes[0] >> 6) == 1) {  // Mux signalling MAX value
                     temperature = ((bytes[2] / 2) - 40); //Effectively has only 7-bit precision, bottom bit is always 0
                     Param::SetInt(Param::BMS_Tavg, temperature);
                 }
