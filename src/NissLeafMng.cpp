@@ -2,6 +2,7 @@
  * This file is part of the ZombieVerter project.
  *
  * Copyright (C) 2021-2023  Tom de Bree <Tom@voltinflux.com>
+ * Copyright (C) 2025 Johannes Niinikoski <johannes.niinikoski@iki.fi> 
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -283,8 +284,15 @@ void NissLeafMng::Task10Ms(int16_t final_torque_request)
         bytes[3] = 0xAC;
         bytes[4] = 0x00;
         bytes[5] = 0x3C;
-        bytes[6] = mprun10;
-        bytes[7] = 0x8F;  //may not need checksum here?
+        bytes[6] = mprun10;		
+        //bytes[7] = 0x8F;  //may not need checksum here?
+				
+		if(opmode != MOD_OFF | opmode != MOD_PRECHARGE){
+			bytes[7] = 0x8F;}
+		else{
+			bytes[7] = 0x0F;
+		}
+		//Byte 7, Bit 7 indicates DCDC ON command, turn on only when not Opmode not OFF/PRECH
 
         can->Send(0x1F2, (uint32_t*)bytes, 8);
 

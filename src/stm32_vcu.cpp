@@ -6,6 +6,7 @@
  * Copyright (C) 2010 Edward Cheeseman <cheesemanedward@gmail.com>
  * Copyright (C) 2009 Uwe Hermann <uwe@hermann-uwe.de>
  * Copyright (C) 2019-2022 Damien Maguire <info@evbmw.com>
+ * Copyright (C) 2025 Johannes Niinikoski <johannes.niinikoski@iki.fi> 
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -601,6 +602,7 @@ static void Ms10Task(void)
         DigIo::inv_out.Clear();//inverter power off
         IOMatrix::GetPin(IOMatrix::COOLANTPUMP)->Clear();//Coolant pump off if used
         Param::SetInt(Param::dir, 0); // shift to park/neutral on shutdown regardless of shifter pos
+		prechargeMinTime=100;					   
         selectedVehicle->DashOff();
         StartSig=false;//reset for next time
 
@@ -646,7 +648,8 @@ static void Ms10Task(void)
         IOMatrix::GetPin(IOMatrix::COOLANTPUMP)->Set();
         if(rlyDly!=0) rlyDly--;//here we are going to pause before energising precharge to prevent too many contactors pulling amps at the same time
         if(rlyDly==0) DigIo::prec_out.Set();//commence precharge
-        if ((stt & (STAT_POTPRESSED | STAT_UDCBELOWUDCSW | STAT_UDCLIM)) == STAT_NONE)
+        if ((prechargeMinTime == 0) &&
+		((stt & (STAT_POTPRESSED | STAT_UDCBELOWUDCSW | STAT_UDCLIM)) == 0)) 		// Clarify operator precedence, exit precharge: time met and no faults
         {
             if(StartSig)
             {
