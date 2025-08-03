@@ -6,6 +6,7 @@
  * Copyright (C) 2010 Edward Cheeseman <cheesemanedward@gmail.com>
  * Copyright (C) 2009 Uwe Hermann <uwe@hermann-uwe.de>
  * Copyright (C) 2019-2022 Damien Maguire <info@evbmw.com>
+ * Copyright (C) 2025 Johannes Niinikoski <johannes.niinikoski@iki.fi>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -111,7 +112,7 @@
 #include "noCompressor.h"
 #include "OutlanderCompressor.h"
 
-#define PRECHARGE_TIMEOUT 7  //7s
+#define PRECHARGE_TIMEOUT 5  //5s
 
 #define PRINT_JSON 0
 
@@ -147,8 +148,8 @@ days=0,
 hours=0, minutes=0, seconds=0,
 alarm=0;			// != 0 when alarm is pending
 
-static uint16_t rlyDly=25;
-static uint16_t prechargeMinTime=200;
+static uint16_t rlyDly=10;
+static uint16_t prechargeMinTime=40;
 
 // Instantiate Classes
 static BMW_E31 e31Vehicle;
@@ -698,7 +699,7 @@ static void Ms10Task(void)
         DigIo::inv_out.Clear();//inverter power off
         IOMatrix::GetPin(IOMatrix::COOLANTPUMP)->Clear();//Coolant pump off if used
         Param::SetInt(Param::dir, 0); // shift to park/neutral on shutdown regardless of shifter pos
-        prechargeMinTime = 200; //recharge precharge min timer
+        //prechargeMinTime = 100; //recharge precharge min timer
         selectedVehicle->DashOff();
 
         StartSig=false;//reset for next time
@@ -721,7 +722,7 @@ static void Ms10Task(void)
             {
                 StartSig=true;
                 opmode = MOD_PRECHARGE;//proceed to precharge if 1)throttle not pressed , 2)ign on , 3)start signal rx
-                rlyDly=25;//Recharge sequence timer
+                rlyDly=10;//Recharge sequence timer
                 vehicleStartTime = rtc_get_counter_val();
                 initbyStart=true;
             }
@@ -729,14 +730,14 @@ static void Ms10Task(void)
         if(chargeMode)
         {
             opmode = MOD_PRECHARGE;//proceed to precharge if charge requested.
-            rlyDly=25;//Recharge sequence timer
+            rlyDly=10;//Recharge sequence timer
             vehicleStartTime = rtc_get_counter_val();
             initbyCharge=true;
         }
         if (preheater.GetRunPreHeat())
         {
             opmode = MOD_PRECHARGE;//proceed to precharge if charge requested.
-            rlyDly=25;//Recharge sequence timer
+            rlyDly=10;//Recharge sequence timer
             vehicleStartTime = rtc_get_counter_val();
             preheater.SetInitByPreHeat(true);
         }
@@ -757,26 +758,26 @@ static void Ms10Task(void)
         if(rlyDly!=0) rlyDly--;//here we are going to pause before energising precharge to prevent too many contactors pulling amps at the same time
         if(rlyDly==0) DigIo::prec_out.Set();//commence precharge
         if(prechargeMinTime!=0) prechargeMinTime--;//1 second minimum precharge time
-        if ((prechargeMinTime == 0
-             && (stt & (STAT_POTPRESSED | STAT_UDCBELOWUDCSW | STAT_UDCLIM)) == STAT_NONE))
+        if ((prechargeMinTime == 0)
+             && (stt & (STAT_POTPRESSED | STAT_UDCBELOWUDCSW | STAT_UDCLIM)) == 0)// Clarify operator precedence, exit precharge: time met and no faults
         {
             if(StartSig)
             {
                 opmode = MOD_RUN;
                 StartSig=false;//reset for next time
-                rlyDly=25;//Recharge sequence timer
+                rlyDly=10;//Recharge sequence timer
                 Param::SetInt(Param::TorqDerate,0);//clear torque derate reason
             }
             else if(chargeMode)
             {
                 opmode = MOD_CHARGE;
-                rlyDly=25;//Recharge sequence timer
+                rlyDly=10;//Recharge sequence timer
                 Param::SetInt(Param::TorqDerate,0);//clear torque derate reason
             }
             else if (preheater.GetRunPreHeat())
             {
                 opmode = MOD_PREHEAT;
-                rlyDly=25;//Recharge sequence timer
+                rlyDly=10;//Recharge sequence timer
                 Param::SetInt(Param::TorqDerate,0);//clear torque derate reason
             }
 

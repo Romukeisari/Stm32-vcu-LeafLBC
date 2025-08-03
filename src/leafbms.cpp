@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2018 Johannes Huebner <dev@johanneshuebner.com>
  *               2024 Daniel Öster <info@dalasevrepair.fi>
+ * Copyright (C) 2025 Johannes Niinikoski <johannes.niinikoski@iki.fi>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -62,7 +63,10 @@ void LeafBMS::DecodeCAN(int id, uint8_t * data)
                 float BattVoltage = udc * 0.5;
                 Param::SetFloat(Param::idc, BattCur);
                 if(BattVoltage < 450)Param::SetFloat(Param::udc2, BattVoltage);
-                if(BattVoltage > 200)Param::SetFloat(Param::udcsw, BattVoltage - 20); //Set for precharging based on actual voltage
+                if((BattVoltage > 200) && (BattVoltage < 450))
+                {
+                    Param::SetFloat(Param::udcsw, BattVoltage - 20); //Set for precharging based on actual voltage
+                }
                 float kw = (BattVoltage*BattCur)/1000;//get power from isa sensor and post to parameter database
                 Param::SetFloat(Param::power, kw);
             }

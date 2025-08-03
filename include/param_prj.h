@@ -19,7 +19,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define VER 2.35.JN
+#define VER 2.34.5.JN
 
 
 /* Entries must be ordered as follows:

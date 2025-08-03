@@ -2,6 +2,7 @@
  * This file is part of the ZombieVerter project.
  *
  * Copyright (C) 2021-2023  Tom de Bree <Tom@voltinflux.com>
+ * Copyright (C) 2025 Johannes Niinikoski <johannes.niinikoski@iki.fi>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -155,7 +156,15 @@ void NissLeafMng::Task10Ms(int16_t final_torque_request)
         //   3: Precharging (0.4%)
         //   5: Starting discharge (3x10ms) (2.0%)
         //   7: Precharged (93%)
-        bytes[4] = 0x07 | (mprun10 << 6);
+        if (opmode == MOD_CHARGE || opmode == MOD_RUN || opmode == MOD_PRECHARGE)
+        {
+            bytes[4] = 0x07; //HV status is ON
+        }
+        else
+        {
+            bytes[4] = 0x02; //HV status is OFF
+        }
+        bytes[4] = bytes[4] | (mprun10 << 6);
         //bytes[4] = 0x02 | (mprun10 << 6);
         //Bit 2 is HV status. 0x00 No HV, 0x01 HV On.
 
@@ -176,7 +185,14 @@ void NissLeafMng::Task10Ms(int16_t final_torque_request)
         // 0x46 requires ~25 torque to start
         //outFrame.data.bytes[5] = 0x46;
         // 0x44 requires ~8 torque to start
-        bytes[5] = 0x44;
+        if((opmode == MOD_OFF) |(opmode == MOD_PRECHARGE)|(opmode == MOD_PCHFAIL))
+            {
+            bytes[5] = 0x04;
+            }
+        else
+            {
+            bytes[5] = 0x44;
+            }
         //bit 6 is Main contactor status. 0x00 Not on, 0x01 on.
 
         // MSB nibble:
@@ -235,8 +251,8 @@ void NissLeafMng::Task10Ms(int16_t final_torque_request)
         // pull, in
         //   LeafLogs/leaf_on_wotind_off.txt
 
-        if (opmode != MOD_CHARGE)  bytes[6] = 0x30;    //brake applied heavilly.
-        if (opmode == MOD_CHARGE)  bytes[6] = 0xE0;   //charging mode
+        if (opmode != MOD_CHARGE){  bytes[6] = 0x30;}    //brake applied heavilly.
+        if (opmode == MOD_CHARGE){  bytes[6] = 0xE0;}   //charging mode
         //In Gen 2 byte 6 is Charge status.
         //0x8C Charging interrupted
         //0xE0 Charging
@@ -271,6 +287,7 @@ void NissLeafMng::Task10Ms(int16_t final_torque_request)
         uint16_t calcBMSpwr=(Vbatt * Param::GetInt(Param::BMS_ChargeLim));//BMS charge current limit but needs to be power for most AC charger types.
 
         uint8_t OBCpwrSP = (MIN(Param::GetInt(Param::Pwrspnt),calcBMSpwr) / 100) + 0x64;
+
 
         if (opmode == MOD_CHARGE && Param::GetInt(Param::Chgctrl) == ChargeControl::Enable)
         {
@@ -314,7 +331,14 @@ void NissLeafMng::Task10Ms(int16_t final_torque_request)
         bytes[4] = 0x00;
         bytes[5] = 0x3C;
         bytes[6] = mprun10;
-        bytes[7] = 0x8F;  //may not need checksum here?
+        //bytes[7] = 0x8F;  //may not need checksum here?
+
+		if(opmode != MOD_OFF && opmode != MOD_PRECHARGE && opmode != MOD_PCHFAIL){
+			bytes[7] = 0x8F;}
+		else{
+			bytes[7] = 0x0F;
+		}
+		//Byte 7, Bit 7 indicates DCDC ON command, turn on only when not Opmode not OFF/PRECH
 
         can->Send(0x1F2, (uint32_t*)bytes, 8);
 
