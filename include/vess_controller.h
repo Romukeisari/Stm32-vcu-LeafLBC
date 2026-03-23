@@ -20,26 +20,22 @@
 
 #ifndef VESS_CONTROLLER_H
 #define VESS_CONTROLLER_H
-#include "canhardware.h"
-#include "params.h"
 
-class VESSController {
+#include <stdint.h>
+#include "canhardware.h"
+
+class VESSController
+{
 public:
     void SetCanInterface(CanHardware* c);
-    void DecodeCAN(int id, uint32_t data[2]);
-    void Task10Ms();
     void Task100Ms();
     void setSpeedKmH(int kmh);
-    void setReverse(bool reverse);
-    void run(bool loopUntilMax = true);
-    void stop();
+    void setReverse(bool rev);
 
 private:
+    CanHardware* can;
     int speed;
     bool reverse;
-    bool running;
-    bool sendSpeedMessage();
-    bool sendGearMessage();
 };
 
-#endif
+#endif // VESS_CONTROLLER_H

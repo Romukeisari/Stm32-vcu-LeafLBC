@@ -23,72 +23,49 @@
 
 void VESSController::SetCanInterface(CanHardware* c)
 {
-    VESSController::SetCanInterface(c);//set Kona VCM messages on same bus as VESS
     can = c;
-
-    can->RegisterUserMessage(0x5E3);//vess alive broadcast
+    can->RegisterUserMessage(0x5E3); // VESS alive broadcast
 }
 
-void VESSController::setSpeedKmH(int kmh) {
-    speed = kmh * 256;
+void VESSController::setSpeedKmH(int kmh)
+{
+    speed = kmh * 256; // 16-bit fixed-point, 1 LSB = 1/256 km/h
 }
 
-void VESSController::setReverse(bool rev) {
+void VESSController::setReverse(bool rev)
+{
     reverse = rev;
 }
 
-void VESSController::Task100Ms {
-
+void VESSController::Task100Ms()
+{
     uint8_t bytes[8];
-    int opmode = Param::GetInt(Param::opmode);
 
-        /////////////////////////////////////////////////////////////////////////////////////////////////
-        // CAN Message 0x524: Speed data frame
+    /////////////////////////////////////////////////////////////////////////
+    // CAN 0x524: Speed frame
+    // Bytes 2-3 carry speed as a big-endian 16-bit value (km/h * 256)
+    bytes[0] = 0x60;
+    bytes[1] = 0x01;
+    bytes[2] = static_cast<uint8_t>(speed >> 8);
+    bytes[3] = static_cast<uint8_t>(speed & 0xFF);
+    bytes[4] = 0x5A;
+    bytes[5] = 0x01;
+    bytes[6] = 0xC0;
+    bytes[7] = 0x02;
 
-        // Data taken from Eric Reuter's python script
-            bytes[0] = 0x60;
-            bytes[1] = 0x01;
-            bytes[2] = static_cast<uint8_t>(speed >> 8);
-            bytes[3] = static_cast<uint8_t>(speed & 0xFF);
-            bytes[4] = 0x5A;
-            bytes[5] = 0x01;
-            bytes[6] = 0xC0;
-            bytes[7] = 0x02;
+    can->Send(0x524, (uint32_t*)bytes, 8);
 
-            can->Send(0x5224, (uint32_t*)bytes, 8);//send on can
+    /////////////////////////////////////////////////////////////////////////
+    // CAN 0x200: Gear/direction frame
+    // Byte 1: 0b00111000 = reverse, 0b00101000 = forward
+    bytes[0] = 0x00;
+    bytes[1] = reverse ? 0b00111000 : 0b00101000;
+    bytes[2] = 0x00;
+    bytes[3] = 0x10;
+    bytes[4] = 0x00;
+    bytes[5] = 0x3B;
+    bytes[6] = 0xD0;
+    bytes[7] = 0x00;
 
-        /////////////////////////////////////////////////////////////////////////////////////////////////
-        // CAN Message 0x200: Speed data frame
-
-        // Data taken from Eric Reuter's python script
-            bytes[0] = 0x00;
-            bytes[1] = reverse ? 0b00111000 : 0b00101000;
-            bytes[2] = 0x00;
-            bytes[3] = 0x10;
-            bytes[4] = 0x00;
-            bytes[5] = 0x3B;
-            bytes[6] = 0xD0;
-            bytes[7] = 0x00;
-
-            can->Send(0x200, (uint32_t*)bytes, 8);//send on can
-
-}
-
-bool VESSController::sendSpeedMessage() {
-    uint8_t data[8] = {
-        0x60, 0x01,
-        static_cast<uint8_t>(speed >> 8),
-        static_cast<uint8_t>(speed & 0xFF),
-        0x5A, 0x01, 0xC0, 0x02
-    };
-    return can->sendMessage(0x524, data, 8);
-}
-
-bool VESSController::sendGearMessage() {
-    uint8_t data[8] = {
-        0x00,
-        reverse ? 0b00111000 : 0b00101000,
-        0x00, 0x10, 0x00, 0x3B, 0xD0, 0x00
-    };
-    return can->sendMessage(0x200, data, 8);
+    can->Send(0x200, (uint32_t*)bytes, 8);
 }

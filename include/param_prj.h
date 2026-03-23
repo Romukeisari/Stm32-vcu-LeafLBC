@@ -27,7 +27,7 @@
    2. Temporary parameters (id = 0)
    3. Display values
  */
-//Next param id (increase when adding new parameter!): 144
+//Next param id (increase when adding new parameter!): 145
 /*              category     name         unit       min     max     default id */
 #define PARAM_LIST \
     PARAM_ENTRY(CAT_SETUP,     Inverter,     INVMODES, 0,      8,      0,      5  ) \
@@ -50,6 +50,7 @@
     PARAM_ENTRY(CAT_SETUP,     DCDCCan,      CAN_DEV,  0,      1,      1,      107 ) \
     PARAM_ENTRY(CAT_SETUP,     HeaterCan,    CAN_DEV,  0,      1,      1,      138 ) \
     PARAM_ENTRY(CAT_SETUP,     VESSCan,    CAN_DEV,  0,      1,      1,      143 ) \
+    PARAM_ENTRY(CAT_SETUP,     SpeedRatio,    "kph/rpm",  0,      1,      0.05,      144 ) \
     PARAM_ENTRY(CAT_SETUP,     MotActive,    MotorsAct,0,      3,      0,      129 ) \
     PARAM_ENTRY(CAT_THROTTLE,  potmin,      "dig",     0,      4095,   0,      7  ) \
     PARAM_ENTRY(CAT_THROTTLE,  potmax,      "dig",     0,      4095,   4095,   8  ) \

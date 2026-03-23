@@ -195,7 +195,7 @@ static Can_OBD2 canOBD2;
 static Shifter shifterNone;
 static RearOutlanderInverter rearoutlanderInv;
 static LinBus* lin;
-static VESSController VESSController;
+static VESSController vess;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static void Ms200Task(void)
@@ -389,6 +389,12 @@ static void Ms100Task(void)
     if(OutlanderCAN == true)
     {
         OutlanderHeartBeat::Task100Ms();
+    }
+    if (Param::GetInt(Param::Vehiclesound) == 1)
+    {
+        vess.setSpeedKmH(ABS(Param::GetInt(Param::speed)) * Param::GetFloat(Param::SpeedRatio));
+        vess.setReverse(Param::GetInt(Param::dir) < 0);
+        vess.Task100Ms();
     }
 
     if (Param::GetInt(Param::dir) < 0)
@@ -1263,6 +1269,8 @@ extern "C" int main(void)
     CanHardware* shunt_can = canInterface[Param::GetInt(Param::ShuntCan)];
 
     canOBD2.SetCanInterface(canInterface[Param::GetInt(Param::OBD2Can)]);
+    if (Param::GetInt(Param::Vehiclesound) == 1)
+    vess.SetCanInterface(canInterface[Param::GetInt(Param::VESSCan)]);
 
     CANSPI_Initialize();// init the MCP25625 on CAN3
     CANSPI_ENRx_IRQ();  //init CAN3 Rx IRQ
