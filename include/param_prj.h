@@ -19,7 +19,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define VER 2.34.5.JN
+#define VER 2.35.5.JN
 
 
 /* Entries must be ordered as follows:
@@ -27,7 +27,7 @@
    2. Temporary parameters (id = 0)
    3. Display values
  */
-//Next param id (increase when adding new parameter!): 153
+//Next param id (increase when adding new parameter!): 158
 /*              category     name         unit       min     max     default id */
 #define PARAM_LIST \
     PARAM_ENTRY(CAT_SETUP,     Inverter,     INVMODES, 0,      8,      1,      5  ) \
@@ -38,6 +38,7 @@
     PARAM_ENTRY(CAT_SETUP,     chargemodes,  CHGMODS,   0,     7,      3,      37 ) \
     PARAM_ENTRY(CAT_SETUP,     BMS_Mode,    BMSMODES,  0,      5,      4,      90 ) \
     PARAM_ENTRY(CAT_SETUP,     ShuntType,   SHNTYPE,   0,      4,      0,      88 ) \
+    PARAM_ENTRY(CAT_SETUP,     Vehiclesound, VEHSOUND, 0,      1,       0,   155 ) \
     PARAM_ENTRY(CAT_SETUP,     InverterCan,  CAN_DEV,  0,      1,      0,      70 ) \
     PARAM_ENTRY(CAT_SETUP,     VehicleCan,   CAN_DEV,  0,      1,      0,      71 ) \
     PARAM_ENTRY(CAT_SETUP,     ShuntCan,     CAN_DEV,  0,      1,      0,      72 ) \
@@ -49,6 +50,8 @@
     PARAM_ENTRY(CAT_SETUP,     DCDCCan,      CAN_DEV,  0,      1,      0,      107 ) \
     PARAM_ENTRY(CAT_SETUP,     HeaterCan,    CAN_DEV,  0,      1,      0,      138 ) \
     PARAM_ENTRY(CAT_SETUP,     CompressorCan,CAN_DEV,  0,      1,      0,      148 ) \
+    PARAM_ENTRY(CAT_SETUP,     VESSCan,    CAN_DEV,  0,      1,      1,      156 ) \
+    PARAM_ENTRY(CAT_SETUP,     SpeedRatio,    "kph/rpm",  0,      1,      0.0255,      157 ) \
     PARAM_ENTRY(CAT_SETUP,     MotActive,    MotorsAct,0,      3,      0,      129 ) \
     PARAM_ENTRY(CAT_SETUP,     ConfigCANOI,   ONOFF,   0,      1,      0,      149 ) \
     PARAM_ENTRY(CAT_THROTTLE,  potmin,      "dig",     0,      4095,   320,      7  ) \
@@ -284,6 +287,7 @@
 #define PLTMODES     "0=Absent, 1=ACStd, 2=ACchg, 3=Error, 4=CCS_Not_Rdy, 5=CCS_Rdy, 6=Static"
 #define VEHMODES     "0=BMW_E46, 1=BMW_E6x+, 2=Classic, 3=None, 5=BMW_E39, 6=VAG, 7=Subaru, 8=BMW_E31"
 #define BMSMODES     "0=Off, 1=SimpBMS, 2=TiDaisychainSingle, 3=TiDaisychainDual, 4=LeafBms, 5=RenaultKangoo33"
+#define VEHSOUND     "0=Off, 1=KonaVess"
 #define OPMODES      "0=Off, 1=Run, 2=Precharge, 3=PchFail, 4=Charge, 5=Preheat"
 #define DOW          "0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat"
 #define CHGTYPS      "0=Off, 1=AC, 2=DCFC"

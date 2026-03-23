@@ -111,6 +111,7 @@
 #include "compressor.h"
 #include "noCompressor.h"
 #include "OutlanderCompressor.h"
+#include "vess_controller.h"
 
 #define PRECHARGE_TIMEOUT 5  //5s
 
@@ -149,7 +150,7 @@ hours=0, minutes=0, seconds=0,
 alarm=0;			// != 0 when alarm is pending
 
 static uint16_t rlyDly=10;
-static uint16_t prechargeMinTime=40;
+static uint16_t prechargeMinTime=10;
 
 // Instantiate Classes
 static BMW_E31 e31Vehicle;
@@ -207,6 +208,7 @@ static Can_OBD2 canOBD2;
 static Shifter shifterNone;
 static RearOutlanderInverter rearoutlanderInv;
 static LinBus* lin;
+static VESSController vess;
 static Preheater preheater;
 static NoCompressor CompressorNone;
 static OutlanderCompressor outlanderCompressor;
@@ -427,7 +429,12 @@ static void Ms100Task(void)
     {
         selectedCompressor->Task100Ms();
     }
-
+    if (Param::GetInt(Param::Vehiclesound) == 1)
+    {
+        vess.setSpeedKmH(ABS(Param::GetInt(Param::speed)) * Param::GetFloat(Param::SpeedRatio));
+        vess.setReverse(Param::GetInt(Param::dir) < 0);
+        vess.Task100Ms();
+    }
     //Setting reverse light
     if (Param::GetInt(Param::dir) < 0)
     {
@@ -1436,6 +1443,8 @@ extern "C" int main(void)
     CanHardware* shunt_can = canInterface[Param::GetInt(Param::ShuntCan)];
 
     canOBD2.SetCanInterface(canInterface[Param::GetInt(Param::OBD2Can)]);
+    if (Param::GetInt(Param::Vehiclesound) == 1)
+    vess.SetCanInterface(canInterface[Param::GetInt(Param::VESSCan)]);
 
     CANSPI_Initialize();// init the MCP25625 on CAN3
     CANSPI_ENRx_IRQ();  //init CAN3 Rx IRQ
