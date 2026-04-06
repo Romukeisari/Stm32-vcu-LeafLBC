@@ -18,24 +18,22 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef VESS_CONTROLLER_H
-#define VESS_CONTROLLER_H
+#ifndef KONAVESS_H
+#define KONAVESS_H
 
-#include <stdint.h>
-#include "canhardware.h"
+#include <vess.h>
+// #include <stdint.h>
+// #include "canhardware.h"
 
-class VESSController
-{
+class KonaVess : public Vess {
 public:
-    void SetCanInterface(CanHardware* c);
-    void Task100Ms();
-    void setSpeedKmH(int kmh);
-    void setReverse(bool rev);
+  KonaVess();
+  void SetCanInterface(CanHardware *c);
+  void DecodeCAN(int id, uint32_t data[2]);
+  void Task100Ms();
 
 private:
-    CanHardware* can;
-    int speed;
-    bool reverse;
+  static void handlealive(uint32_t data[2]);
 };
 
-#endif // VESS_CONTROLLER_H
+#endif // KONAVESS_H

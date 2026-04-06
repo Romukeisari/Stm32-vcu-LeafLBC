@@ -64,6 +64,7 @@
 		<Unit filename="include/GS450H.h" />
 		<Unit filename="include/JLR_G1.h" />
 		<Unit filename="include/JLR_G2.h" />
+		<Unit filename="include/KonaVess.h" />
 		<Unit filename="include/MCP2515.h" />
 		<Unit filename="include/MGCoolantHeater.h" />
 		<Unit filename="include/MGgen2V2Lcharger.h" />
@@ -102,6 +103,7 @@
 		<Unit filename="include/leafinv.h" />
 		<Unit filename="include/noCompressor.h" />
 		<Unit filename="include/noHeater.h" />
+		<Unit filename="include/noVess.h" />
 		<Unit filename="include/no_Lever.h" />
 		<Unit filename="include/nocharger.h" />
 		<Unit filename="include/notused.h" />
@@ -119,6 +121,7 @@
 		<Unit filename="include/utils.h" />
 		<Unit filename="include/vag_sbox.h" />
 		<Unit filename="include/vehicle.h" />
+		<Unit filename="include/vess.h" />
 		<Unit filename="libopeninv/include/anain.h" />
 		<Unit filename="libopeninv/include/canhardware.h" />
 		<Unit filename="libopeninv/include/canmap.h" />
@@ -167,6 +170,7 @@
 		<Unit filename="src/GS450H.cpp" />
 		<Unit filename="src/JLR_G1.cpp" />
 		<Unit filename="src/JLR_G2.cpp" />
+		<Unit filename="src/KonaVess.cpp" />
 		<Unit filename="src/MCP2515.cpp" />
 		<Unit filename="src/MGCoolantHeater.cpp" />
 		<Unit filename="src/MGgen2V2Lcharger.cpp" />
