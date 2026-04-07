@@ -21,39 +21,71 @@
 #ifndef IOMATRIX_H
 #define IOMATRIX_H
 
+#include "anain.h"
 #include "digio.h"
 #include "params.h"
-#include "anain.h"
 
-class IOMatrix
-{
-   public://order of these matters!
-      enum pinfuncs
-      {
-         NONE, CHADEMOALLOW, OBCENABLE, HEATERENABLE, RUNINDICATION, WARNINDICATION,
-         COOLANTPUMP, NEGCONTACTOR, BRAKELIGHT, REVERSELIGHT, HEATREQ, HVREQ,
-         DCFCREQUEST, BRAKEVACPUMP, COOLINGFAN, HVACTIVE, PWM_TIM3,CP_SPOOF,
-         GS450HOIL, LAST
-      };
-            //order of these matters!
-      enum analoguepinfuncs
-      {
-         NONE_ANAL, PILOT_PROX, VAC_SENSOR, LAST_ANAL
-      };
+class IOMatrix {
+public: // order of these matters!
+  enum pininfuncs {
+    NONEIN,
+    HEATREQ,
+    HVREQ,
+    DCFCREQUEST,
+    NOREGEN,
+    HVIL,
+    LAST_IN
+  };
 
-      static void AssignFromParams();
-      static void AssignFromParamsAnalogue();
-      static DigIo* GetPin(pinfuncs f) { return functionToPin[f]; }
-      static AnaIn* GetAnaloguePin(analoguepinfuncs f) { return functionToPinAnalgoue[f]; }
+  enum pinoutfuncs {
+    NONEOUT,
+    CHADEMOALLOW,
+    OBCENABLE,
+    HEATERENABLE,
+    RUNINDICATION,
+    WARNINDICATION,
+    COOLANTPUMP,
+    NEGCONTACTOR,
+    BRAKELIGHT,
+    REVERSELIGHT,
+    BRAKEVACPUMP,
+    COOLINGFAN,
+    HVACTIVE,
+    SHIFTLOCKNO,
+    PREHEATOUT,
+    PWM_TIM3,
+    CP_SPOOF,
+    GS450HOIL,
+    PWMTEMPGAUGE,
+    PWMSOCGAUGE,
+    LAST_OUT
+  };
+  // order of these matters!
+  enum analoguepinfuncs {
+    NONE_ANAL,
+    PILOT_PROX,
+    VAC_SENSOR,
+    HEATER_POT,
+    LAST_ANAL
+  };
 
-   private:
-      static DigIo* functionToPin[LAST];
-      static const int numPins = 13;
-      static DigIo* const paramToPin[numPins];
+  static void AssignFromParams();
+  static void AssignFromParamsAnalogue();
+  static DigIo *GetPinIn(pininfuncs f) { return functionToPinIn[f]; }
+  static DigIo *GetPinOut(pinoutfuncs f) { return functionToPinOut[f]; }
+  static AnaIn *GetAnaloguePin(analoguepinfuncs f) {
+    return functionToPinAnalgoue[f];
+  }
 
-      static AnaIn* functionToPinAnalgoue[LAST_ANAL];
-      static const int numAnaloguePins = 2;
-      static AnaIn* const paramToPinAnalgue[numAnaloguePins];
+private:
+  static DigIo *functionToPinIn[LAST_IN];
+  static DigIo *functionToPinOut[LAST_OUT];
+  static const int numPins = 13;
+  static DigIo *const paramToPin[numPins];
+
+  static AnaIn *functionToPinAnalgoue[LAST_ANAL];
+  static const int numAnaloguePins = 3;
+  static AnaIn *const paramToPinAnalgue[numAnaloguePins];
 };
 
 #endif // IOMATRIX_H
