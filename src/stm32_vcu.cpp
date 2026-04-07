@@ -37,10 +37,12 @@
 #include "GS450H.h"
 #include "JLR_G1.h"
 #include "JLR_G2.h"
+#include "KonaVess.h"
 #include "MGCoolantHeater.h"
 #include "NissanPDM.h"
 #include "NoInverter.h"
 #include "NoVehicle.h"
+#include "NoVess.h"
 #include "OutlanderCanHeater.h"
 #include "OutlanderHeartBeat.h"
 #include "TeslaDCDC.h"
@@ -100,7 +102,7 @@
 #include "utils.h"
 #include "vag_sbox.h"
 #include "vehicle.h"
-#include "vess_controller.h"
+#include "vess.h"
 #include <libopencm3/stm32/can.h>
 #include <libopencm3/stm32/exti.h>
 #include <libopencm3/stm32/iwdg.h>
@@ -147,8 +149,8 @@ static bool HVILok = 0;
 static volatile unsigned days = 0, hours = 0, minutes = 0, seconds = 0,
                          alarm = 0; // != 0 when alarm is pending
 
-static uint16_t rlyDly = 25;
-static uint16_t prechargeMinTime = 100;
+static uint16_t rlyDly = 10;
+static uint16_t prechargeMinTime = 10;
 
 // Instantiate Classes
 static BMW_E31 e31Vehicle;
@@ -205,9 +207,11 @@ static DCDC *selectedDCDC = &DCDCnone;
 static Can_OBD2 canOBD2;
 static Shifter shifterNone;
 static RearOutlanderInverter rearoutlanderInv;
-static VESSController vess;
 static LinBus *lin;
 static Preheater preheater;
+static NoVess VessNone;
+static KonaVess Vesskona;
+static Vess *selectedVess = &VessNone;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static void Ms200Task(void) {
@@ -396,6 +400,7 @@ static void Ms100Task(void) {
   selectedDCDC->Task100Ms();
   selectedShifter->Task100Ms();
   selectedHeater->Task100Ms();
+  selectedVess->Task100Ms();
   canMap->SendAll();
   canSdo->TriggerTimeout(100);
 
@@ -520,12 +525,6 @@ static void Ms100Task(void) {
         Param::SetInt(Param::HeatReq, 0); // Of
       }
     }
-  }
-  if (Param::GetInt(Param::Vehiclesound) == 1) {
-    vess.setSpeedKmH(ABS(Param::GetInt(Param::speed)) *
-                     Param::GetFloat(Param::SpeedRatio));
-    vess.setReverse(Param::GetInt(Param::dir) < 0);
-    vess.Task100Ms();
   }
 
   // Reading HVrequest inpput
@@ -731,20 +730,20 @@ static void Ms10Task(void) {
         opmode = MOD_PRECHARGE; // proceed to precharge if 1)throttle not
                                 // pressed , 2)ign on , 3)start signal rx, 4) HV
                                 // IL input is grounded if selected.
-        rlyDly = 25;            // Recharge sequence timer
+        rlyDly = 10;            // Recharge sequence timer
         vehicleStartTime = rtc_get_counter_val();
         initbyStart = true;
       }
     }
     if (chargeMode) {
       opmode = MOD_PRECHARGE; // proceed to precharge if charge requested.
-      rlyDly = 25;            // Recharge sequence timer
+      rlyDly = 10;            // Recharge sequence timer
       vehicleStartTime = rtc_get_counter_val();
       initbyCharge = true;
     }
     if (preheater.GetRunPreHeat()) {
       opmode = MOD_PRECHARGE; // proceed to precharge if charge requested.
-      rlyDly = 25;            // Recharge sequence timer
+      rlyDly = 10;            // Recharge sequence timer
       vehicleStartTime = rtc_get_counter_val();
       preheater.SetInitByPreHeat(true);
     }
@@ -779,15 +778,15 @@ static void Ms10Task(void) {
       if (StartSig) {
         opmode = MOD_RUN;
         StartSig = false;                    // reset for next time
-        rlyDly = 25;                         // Recharge sequence timer
+        rlyDly = 10;                         // Recharge sequence timer
         Param::SetInt(Param::TorqDerate, 0); // clear torque derate reason
       } else if (chargeMode) {
         opmode = MOD_CHARGE;
-        rlyDly = 25;                         // Recharge sequence timer
+        rlyDly = 10;                         // Recharge sequence timer
         Param::SetInt(Param::TorqDerate, 0); // clear torque derate reason
       } else if (preheater.GetRunPreHeat()) {
         opmode = MOD_PREHEAT;
-        rlyDly = 25;                         // Recharge sequence timer
+        rlyDly = 10;                         // Recharge sequence timer
         Param::SetInt(Param::TorqDerate, 0); // clear torque derate reason
       }
     }
@@ -1132,6 +1131,25 @@ static void UpdateShifter() {
   canInterface[1]->ClearUserMessages();
 }
 
+static void UpdateVess() {
+  switch (Param::GetInt(Param::Vehiclesound)) {
+  case VehicleSoundModes::NoSound:
+    selectedVess = &VessNone;
+    break;
+
+  case VehicleSoundModes::KonaSound:
+    selectedVess = &Vesskona;
+    break;
+  default:
+    // Default to no vess
+    selectedVess = &VessNone;
+    break;
+  }
+  // This will call SetCanFilters() via the Clear Callback
+  canInterface[0]->ClearUserMessages();
+  canInterface[1]->ClearUserMessages();
+}
+
 // Whenever the user clears mapped can messages or changes the
 // CAN interface of a device, this will be called by the CanHardware module
 static void SetCanFilters() {
@@ -1144,6 +1162,7 @@ static void SetCanFilters() {
   CanHardware *obd2_can = canInterface[Param::GetInt(Param::OBD2Can)];
   CanHardware *dcdc_can = canInterface[Param::GetInt(Param::DCDCCan)];
   CanHardware *heater_can = canInterface[Param::GetInt(Param::HeaterCan)];
+  CanHardware *vess_can = canInterface[Param::GetInt(Param::VessCan)];
 
   selectedInverter->SetCanInterface(inverter_can);
   selectedVehicle->SetCanInterface(vehicle_can);
@@ -1154,6 +1173,7 @@ static void SetCanFilters() {
   selectedShifter->SetCanInterface(vehicle_can);
   canOBD2.SetCanInterface(obd2_can);
   selectedHeater->SetCanInterface(heater_can);
+  selectedVess->SetCanInterface(vess_can);
 
   if (Param::GetInt(Param::ShuntType) == 1 ||
       Param::GetInt(Param::ShuntType) == 4)
@@ -1167,7 +1187,6 @@ static void SetCanFilters() {
   canInterface[0]->RegisterUserMessage(0x601); // CanSDO
 }
 
-<<<<<<< HEAD
 void Param::Change(Param::PARAM_NUM paramNum) {
   // This function is called when the user changes a parameter
   switch (paramNum) {
@@ -1195,11 +1214,15 @@ void Param::Change(Param::PARAM_NUM paramNum) {
   case Param::GearLvr:
     UpdateShifter();
     break;
+  case Param::Vehiclesound:
+    UpdateVess();
+    break;
   case Param::InverterCan:
   case Param::VehicleCan:
   case Param::ShuntCan:
   case Param::LimCan:
   case Param::ChargerCan:
+  case Param::VessCan:
     canInterface[0]->ClearUserMessages();
     canInterface[1]->ClearUserMessages();
     break;
@@ -1251,9 +1274,10 @@ void Param::Change(Param::PARAM_NUM paramNum) {
   Throttle::throtmin = Param::GetFloat(Param::throtmin);
   Throttle::throtdead = Param::GetFloat(Param::throtdead);
   // Throttle::idcmin = Param::GetFloat(Param::idcmin); //Make them dynamic so
-  // code section can impact Throttle::idcmax = Param::GetFloat(Param::idcmax);
-  // Throttle::udcmin = Param::GetFloat(Param::udcmin);
-  // Throttle::udcmax = Param::GetFloat(Param::udclim);
+  // code section can impact Throttle::idcmax =
+  // Param::GetFloat(Param::idcmax); Throttle::udcmin =
+  // Param::GetFloat(Param::udcmin); Throttle::udcmax =
+  // Param::GetFloat(Param::udclim);
   Throttle::speedLimit = Param::GetInt(Param::revlim);
   Throttle::regenRamp = Param::GetFloat(Param::regenramp);
   Throttle::throttleRamp = Param::GetFloat(Param::throtramp);
@@ -1280,11 +1304,13 @@ void Param::Change(Param::PARAM_NUM paramNum) {
        300); // number of 200ms ticks that equates to charge timer in minutes
   IOMatrix::AssignFromParams();
   IOMatrix::AssignFromParamsAnalogue();
+
+  preheater.ParamsChange();
 }
 
-static bool CanCallback(
-    uint32_t id, uint32_t data[2],
-    uint8_t dlc) // This is where we go when a defined CAN message is received.
+static bool CanCallback(uint32_t id, uint32_t data[2],
+                        uint8_t dlc) // This is where we go when a defined CAN
+                                     // message is received.
 {
   dlc = dlc;
   switch (id) {
@@ -1293,7 +1319,8 @@ static bool CanCallback(
     break;
 
   default:
-    if (Param::GetInt(Param::ShuntType) == 1)
+    if (Param::GetInt(Param::ShuntType) == 1 ||
+        Param::GetInt(Param::ShuntType) == 4)
       ISA::DecodeCAN(id, data);
     if (Param::GetInt(Param::ShuntType) == 2)
       SBOX::DecodeCAN(id, data);
@@ -1307,6 +1334,7 @@ static bool CanCallback(
     selectedDCDC->DecodeCAN(id, (uint8_t *)data);
     selectedShifter->DecodeCAN(id, data);
     selectedHeater->DecodeCAN(id, data);
+    selectedVess->DecodeCAN(id, data);
     break;
   }
   return false;
@@ -1356,7 +1384,7 @@ extern "C" void rtc_isr(void) {
   }
 }
 
-extern "C" int main(void) {
+int main(void) {
   extern const TERM_CMD TermCmds[];
 
   clock_setup();
@@ -1375,7 +1403,7 @@ extern "C" int main(void) {
   DigIo::inv_out.Clear(); // inverter power off during bootup
   DigIo::mcp_sby.Clear(); // enable can3
 
-  Terminal t(USART3, TermCmds);
+  Terminal t(USART3, TermCmds, false, true, !Param::GetBool(Param::UseRS232));
   //   FunctionPointerCallback canCb(CanCallback, SetCanFilters);
   Stm32Can c(CAN1, CanHardware::Baud500);
   Stm32Can c2(CAN2, CanHardware::Baud500, true);
@@ -1397,13 +1425,13 @@ extern "C" int main(void) {
   c.AddCallback(&cb);
   c2.AddCallback(&cb);
   TerminalCommands::SetCanMap(&cm);
+  SdoCommands::SetCanMap(&cm);
   canMap = &cm;
+  canSdo = &sdo;
 
   CanHardware *shunt_can = canInterface[Param::GetInt(Param::ShuntCan)];
 
   canOBD2.SetCanInterface(canInterface[Param::GetInt(Param::OBD2Can)]);
-  if (Param::GetInt(Param::Vehiclesound) == 1)
-    vess.SetCanInterface(canInterface[Param::GetInt(Param::VESSCan)]);
 
   CANSPI_Initialize(); // init the MCP25625 on CAN3
   CANSPI_ENRx_IRQ();   // init CAN3 Rx IRQ
@@ -1411,292 +1439,44 @@ extern "C" int main(void) {
   LinBus l(USART1, 19200);
   lin = &l;
 
-  == == == = void Param::Change(Param::PARAM_NUM paramNum) {
-    // This function is called when the user changes a parameter
-    switch (paramNum) {
-    case Param::Inverter:
->>>>>>> upstream/master
-      UpdateInv();
-      break;
-    case Param::Vehicle:
-      UpdateVehicle();
-      break;
-    case Param::chargemodes:
-      UpdateCharger();
-      break;
-    case Param::interface:
-      UpdateChargeInt();
-      break;
-    case Param::Heater:
-      UpdateHeater();
-      break;
-    case Param::BMS_Mode:
-      UpdateBMS();
-      break;
-    case Param::DCdc_Type:
-      UpdateDCDC();
-      break;
-    case Param::GearLvr:
-      UpdateShifter();
-      break;
-    case Param::InverterCan:
-    case Param::VehicleCan:
-    case Param::ShuntCan:
-    case Param::LimCan:
-    case Param::ChargerCan:
-      canInterface[0]->ClearUserMessages();
-      canInterface[1]->ClearUserMessages();
-      break;
-    case Param::CAN3Speed:
-      CANSPI_Initialize(); // init the MCP25625 on CAN3
-      CANSPI_ENRx_IRQ();   // init CAN3 Rx IRQ
-      break;
-    case Param::Tim3_Presc:
-    case Param::Tim3_Period:
-    case Param::Tim3_1_OC:
-    case Param::Tim3_2_OC:
-    case Param::Tim3_3_OC:
-    case Param::PWM1Func:
-    case Param::PWM2Func:
-    case Param::PWM3Func:
-      tim3_setup();
-      break;
-    case Param::CP_PWM:
-      // timer_set_oc_value(TIM3, TIM_OC3,
-      // (Param::GetInt(Param::CP_PWM)*66)-16);//No duty set here
-      break;
-    default:
-      break;
+  UpdateInv();
+  UpdateVehicle();
+  UpdateCharger();
+  UpdateChargeInt();
+  UpdateBMS();
+  UpdateHeater();
+  UpdateDCDC();
+  UpdateShifter();
+  UpdateVess();
+
+  Stm32Scheduler s(TIM4); // We never exit main so it's ok to put it on stack
+  scheduler = &s;
+
+  s.AddTask(Ms1Task, 1);
+  s.AddTask(Ms10Task, 10);
+  s.AddTask(Ms100Task, 100);
+  s.AddTask(Ms200Task, 200);
+
+  if (Param::GetInt(Param::IsaInit) == 1)
+    ISA::initialize(shunt_can); // only call this once if a new sensor is
+                                // fitted.
+
+  Param::SetInt(Param::version, 4);      // backward compatibility
+  Param::SetInt(Param::opmode, MOD_OFF); // always off at startup
+
+  while (1) {
+    char c = 0;
+    CanSdo::SdoFrame *sdoFrame = sdo.GetPendingUserspaceSdo();
+    t.Run();
+    if (sdo.GetPrintRequest() == PRINT_JSON) {
+      TerminalCommands::PrintParamsJson(&sdo, &c);
     }
+    if (0 != sdoFrame) {
+      SdoCommands::ProcessStandardCommands(sdoFrame);
 
-    if (Param::GetInt(Param::reversemotor) != 0) {
-      if (Param::GetInt(Param::Inverter) == InvModes::RearOutlander) {
-
-      } else {
-        Param::SetInt(Param::reversemotor, 0);
-      }
-    }
-
-    Throttle::potmin[0] = Param::GetInt(Param::potmin);
-    Throttle::potmax[0] = Param::GetInt(Param::potmax);
-    Throttle::potmin[1] = Param::GetInt(Param::pot2min);
-    Throttle::potmax[1] = Param::GetInt(Param::pot2max);
-    Throttle::regenRpm = Param::GetFloat(Param::regenrpm);
-    Throttle::regenendRpm = Param::GetFloat(Param::regenendrpm);
-    Throttle::ThrotRpmFilt = Param::GetFloat(Param::throtrpmfilt);
-    if (Throttle::regenRpm < Throttle::regenendRpm) {
-      Throttle::regenRpm = 1500;
-      Throttle::regenendRpm = 100;
-      Param::SetFloat(Param::regenrpm, 1500);
-      Param::SetFloat(Param::regenendrpm, 100);
-    }
-    Throttle::regenmax = Param::GetFloat(Param::regenmax);
-    Throttle::throtmax = Param::GetFloat(Param::throtmax);
-    Throttle::throtmin = Param::GetFloat(Param::throtmin);
-    Throttle::throtdead = Param::GetFloat(Param::throtdead);
-    // Throttle::idcmin = Param::GetFloat(Param::idcmin); //Make them dynamic so
-    // code section can impact Throttle::idcmax =
-    // Param::GetFloat(Param::idcmax); Throttle::udcmin =
-    // Param::GetFloat(Param::udcmin); Throttle::udcmax =
-    // Param::GetFloat(Param::udclim);
-    Throttle::speedLimit = Param::GetInt(Param::revlim);
-    Throttle::regenRamp = Param::GetFloat(Param::regenramp);
-    Throttle::throttleRamp = Param::GetFloat(Param::throtramp);
-    Throttle::throtmaxRev = Param::GetFloat(throtmaxRev);
-    Throttle::regenBrake = Param::GetFloat(Param::regenBrake);
-
-    targetCharger = static_cast<ChargeModes>(
-        Param::GetInt(Param::chargemodes)); // get charger setting from menu
-    targetChgint = static_cast<ChargeInterfaces>(
-        Param::GetInt(Param::interface)); // get interface setting from menu
-    if (ChgSet == 1) {
-      seconds =
-          Param::GetInt(Param::Set_Sec); // only update these params if
-                                         // charge command is set to disable
-      minutes = Param::GetInt(Param::Set_Min);
-      hours = Param::GetInt(Param::Set_Hour);
-      days = Param::GetInt(Param::Set_Day);
-      ChgHrs_tmp = GetInt(Param::Chg_Hrs);
-      ChgMins_tmp = GetInt(Param::Chg_Min);
-      ChgDur_tmp = GetInt(Param::Chg_Dur);
-    }
-    ChgSet = Param::GetInt(Param::Chgctrl); // 0=enable,1=disable,2=timer.
-    ChgTicks =
-        (GetInt(Param::Chg_Dur) *
-         300); // number of 200ms ticks that equates to charge timer in minutes
-    IOMatrix::AssignFromParams();
-    IOMatrix::AssignFromParamsAnalogue();
-
-    preheater.ParamsChange();
-  }
-
-  static bool CanCallback(uint32_t id, uint32_t data[2],
-                          uint8_t dlc) // This is where we go when a defined CAN
-                                       // message is received.
-  {
-    dlc = dlc;
-    switch (id) {
-    case 0x7DF:
-      canOBD2.DecodeCAN(id, data);
-      break;
-
-    default:
-      if (Param::GetInt(Param::ShuntType) == 1 ||
-          Param::GetInt(Param::ShuntType) == 4)
-        ISA::DecodeCAN(id, data);
-      if (Param::GetInt(Param::ShuntType) == 2)
-        SBOX::DecodeCAN(id, data);
-      if (Param::GetInt(Param::ShuntType) == 3)
-        VWBOX::DecodeCAN(id, data);
-      selectedInverter->DecodeCAN(id, data);
-      selectedVehicle->DecodeCAN(id, data);
-      selectedCharger->DecodeCAN(id, data);
-      selectedChargeInt->DecodeCAN(id, data);
-      selectedBMS->DecodeCAN(id, (uint8_t *)data);
-      selectedDCDC->DecodeCAN(id, (uint8_t *)data);
-      selectedShifter->DecodeCAN(id, data);
-      selectedHeater->DecodeCAN(id, data);
-      break;
-    }
-    return false;
-  }
-
-  static void ConfigureVariantIO() {
-    ANA_IN_CONFIGURE(ANA_IN_LIST);
-    DIG_IO_CONFIGURE(DIG_IO_LIST);
-
-    AnaIn::Start();
-  }
-
-  extern "C" void tim4_isr(void) { scheduler->Run(); }
-
-  extern "C" void exti15_10_isr(void) // CAN3 MCP25625 interruppt
-  {
-    uCAN_MSG rxMessage;
-    uint32_t canData[2];
-    if (CANSPI_receive(&rxMessage)) {
-      canData[0] = (rxMessage.frame.data0 | rxMessage.frame.data1 << 8 |
-                    rxMessage.frame.data2 << 16 | rxMessage.frame.data3 << 24);
-      canData[1] = (rxMessage.frame.data4 | rxMessage.frame.data5 << 8 |
-                    rxMessage.frame.data6 << 16 | rxMessage.frame.data7 << 24);
-    }
-    // can cast this to uint32_t[2]. dont be an idiot! * pointer
-    CANSPI_CLR_IRQ();           // Clear Rx irqs in mcp25625
-    exti_reset_request(EXTI15); // clear irq
-    if ((rxMessage.frame.id == 0x108) || (rxMessage.frame.id == 0x109))
-      selectedChargeInt->DecodeCAN(rxMessage.frame.id, canData);
-  }
-
-  extern "C" void rtc_isr(void) {
-    /* The interrupt flag isn't cleared by hardware, we have to do it. */
-    rtc_clear_flag(RTC_SEC);
-
-    if (++seconds >= 60) {
-      ++minutes;
-      seconds -= 60;
-    }
-    if (minutes >= 60) {
-      ++hours;
-      minutes -= 60;
-    }
-    if (hours >= 24) {
-      ++days;
-      hours -= 24;
+      sdo.SendSdoReply(sdoFrame);
     }
   }
 
-  int main(void) {
-    extern const TERM_CMD TermCmds[];
-
-    clock_setup();
-    rtc_setup();
-    ConfigureVariantIO();
-    gpio_primary_remap(AFIO_MAPR_SWJ_CFG_JTAG_OFF_SW_ON,
-                       AFIO_MAPR_CAN2_REMAP |
-                           AFIO_MAPR_TIM1_REMAP_FULL_REMAP); // 32f107
-    usart2_setup(); // TOYOTA HYBRID INVERTER INTERFACE
-    nvic_setup();
-    parm_load();
-    spi2_setup();
-    spi3_setup();
-    tim3_setup(); // For general purpose PWM output
-    Param::Change(Param::PARAM_LAST);
-    DigIo::inv_out.Clear(); // inverter power off during bootup
-    DigIo::mcp_sby.Clear(); // enable can3
-
-    Terminal t(USART3, TermCmds, false, true, !Param::GetBool(Param::UseRS232));
-    //   FunctionPointerCallback canCb(CanCallback, SetCanFilters);
-    Stm32Can c(CAN1, CanHardware::Baud500);
-    Stm32Can c2(CAN2, CanHardware::Baud500, true);
-    FunctionPointerCallback cb(CanCallback, SetCanFilters);
-    Stm32Can *CanMapDev = &c;
-    if (Param::GetInt(Param::CanMapCan) == 0) {
-      CanMapDev = &c;
-    } else {
-      CanMapDev = &c2;
-    }
-    CanMap cm(CanMapDev);
-    CanSdo sdo(&c, &cm);
-    sdo.SetNodeId(3); // id 3 for vcu?
-    // Set up CAN 1 callback and messages to listen for
-    //  c.AddReceiveCallback(&canCb);
-    //  c2.AddReceiveCallback(&canCb);
-    canInterface[0] = &c;
-    canInterface[1] = &c2;
-    c.AddCallback(&cb);
-    c2.AddCallback(&cb);
-    TerminalCommands::SetCanMap(&cm);
-    SdoCommands::SetCanMap(&cm);
-    canMap = &cm;
-    canSdo = &sdo;
-
-    CanHardware *shunt_can = canInterface[Param::GetInt(Param::ShuntCan)];
-
-    canOBD2.SetCanInterface(canInterface[Param::GetInt(Param::OBD2Can)]);
-
-    CANSPI_Initialize(); // init the MCP25625 on CAN3
-    CANSPI_ENRx_IRQ();   // init CAN3 Rx IRQ
-
-    LinBus l(USART1, 19200);
-    lin = &l;
-
-    UpdateInv();
-    UpdateVehicle();
-    UpdateCharger();
-    UpdateChargeInt();
-    UpdateBMS();
-    UpdateHeater();
-    UpdateDCDC();
-    UpdateShifter();
-
-    Stm32Scheduler s(TIM4); // We never exit main so it's ok to put it on stack
-    scheduler = &s;
-
-    s.AddTask(Ms1Task, 1);
-    s.AddTask(Ms10Task, 10);
-    s.AddTask(Ms100Task, 100);
-    s.AddTask(Ms200Task, 200);
-
-    if (Param::GetInt(Param::IsaInit) == 1)
-      ISA::initialize(shunt_can); // only call this once if a new sensor is
-                                  // fitted.
-
-    Param::SetInt(Param::version, 4);      // backward compatibility
-    Param::SetInt(Param::opmode, MOD_OFF); // always off at startup
-
-    while (1) {
-      char c = 0;
-      CanSdo::SdoFrame *sdoFrame = sdo.GetPendingUserspaceSdo();
-      t.Run();
-      if (sdo.GetPrintRequest() == PRINT_JSON) {
-        TerminalCommands::PrintParamsJson(&sdo, &c);
-      }
-      if (0 != sdoFrame) {
-        SdoCommands::ProcessStandardCommands(sdoFrame);
-
-        sdo.SendSdoReply(sdoFrame);
-      }
-    }
-
-    return 0;
-  }
+  return 0;
+}
