@@ -19,14 +19,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define VER 2.40JN
+#define VER 2.41.0JN
 
 /* Entries must be ordered as follows:
    1. Saveable parameters (id != 0)
    2. Temporary parameters (id = 0)
    3. Display values
  */
-// Next param id (increase when adding new parameter!): 160
+// Next param id (increase when adding new parameter!): 168
 /*              category     name         unit       min     max     default id
  */
 #define PARAM_LIST                                                             \
@@ -83,8 +83,13 @@
   PARAM_ENTRY(CAT_THROTTLE, throtmin, "%", -100, 0, -100, 26)                  \
   PARAM_ENTRY(CAT_THROTTLE, throtmaxRev, "%", 0, 100, 30, 123)                 \
   PARAM_ENTRY(CAT_THROTTLE, throtdead, "%", 0, 50, 10, 76)                     \
+  PARAM_ENTRY(CAT_THROTTLE, potlinearity, "%", 0, 100, 100, 162)               \
   PARAM_ENTRY(CAT_THROTTLE, RegenBrakeLight, "%", -100, 0, -15, 128)           \
   PARAM_ENTRY(CAT_THROTTLE, throtrpmfilt, "rpm/10ms", 0.1, 200, 15, 131)       \
+  PARAM_ENTRY(CAT_THROTTLE, idlemode, "IDLEMODES", 0, 2, 0, 163)               \
+  PARAM_ENTRY(CAT_THROTTLE, idlespeed, "RPM", 0, 500, 200, 164)                \
+  PARAM_ENTRY(CAT_THROTTLE, idlethrotlim, "%", 0, 15, 8, 165)                  \
+  PARAM_ENTRY(CAT_THROTTLE, speedkp, "", 0, 0.5, 0.1, 166)                     \
   PARAM_ENTRY(CAT_LEXUS, Gear, LOWHIGH, 0, 3, 0, 27)                           \
   PARAM_ENTRY(CAT_LEXUS, OilPump, "%", 0, 100, 50, 28)                         \
   PARAM_ENTRY(CAT_CRUISE, cruisestep, "rpm", 1, 1000, 200, 29)                 \
@@ -375,6 +380,7 @@
 #define DIRLIM "0=None, 1=SpeedThres, 2=SpeedBrake"
 #define ABOVEBELOW "0=BelowOF,1=BelowScale, 2=AboveOF, 3=AboveScale"
 #define DRIVEINHIBITMODES "0=Off,1=Plug detect"
+#define IDLEMODES "0=Off,1=Always,2=Off when brake"
 
 #define CAN_PERIOD_100MS 0
 #define CAN_PERIOD_10MS 1

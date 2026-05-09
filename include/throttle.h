@@ -47,6 +47,7 @@ public:
   static float throtmaxRev;
   static float throtmin;
   static float throtdead;
+  static float linearity;
   static int idleSpeed;
   static int cruiseSpeed;
   static float speedkp;

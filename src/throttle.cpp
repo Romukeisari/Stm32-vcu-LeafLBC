@@ -42,6 +42,7 @@ float Throttle::throtmax;
 float Throttle::throtmaxRev;
 float Throttle::throtmin;
 float Throttle::throtdead;
+float Throttle::linearity;
 float Throttle::regenRamp;
 float Throttle::throttleRamp;
 float Throttle::udcmin;
@@ -181,6 +182,13 @@ float Throttle::CalcThrottle(int potval, int potIdx, bool brkpedal) {
     potnom = 0.0f;
   } else {
     potnom = (potnom - throtdead) * (100.0f / (100.0f - throtdead));
+  }
+
+  // quadratic linearity blend (NEW)
+  if (linearity < 1.0f && potnom > 0.0f) {
+    float x = potnom / 100.0f;
+    float quad = x * x * (1.0f - linearity);
+    potnom = (quad + x * linearity) * 100.0f;
   }
 
   //!! pedal command intent coding

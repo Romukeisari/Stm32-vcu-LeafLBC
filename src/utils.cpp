@@ -378,7 +378,7 @@ float ProcessUdc(int motorSpeed) {
     {
       if (udc2 > Param::GetFloat(Param::udcmin)) {
         // only update UDCsw if UDC2 is above udcmin
-        Param::SetFloat(Param::udcsw, udc2 - 20); 
+        Param::SetFloat(Param::udcsw, udc2 - 20);
         // Set udcsw to 20V under battery voltage
       }
     }
@@ -395,7 +395,7 @@ float ProcessUdc(int motorSpeed) {
       Param::SetFloat(Param::udc2, udc2);
       if (udc2 > Param::GetFloat(Param::udcmin)) {
         // only update UDCsw if UDC2 is above udcmin
-        Param::SetFloat(Param::udcsw, udc2 - 20); 
+        Param::SetFloat(Param::udcsw, udc2 - 20);
         // Set udcsw to 20V under battery voltage
       }
     } else {
@@ -500,6 +500,18 @@ float ProcessThrottle(int speed) {
   MAX(cruiseThrottle, finalSpnt);
   }
   */
+  // Creep / idle speed floor
+  int idlemode = Param::GetInt(Param::idlemode);
+  if (idlemode > 0 && Param::GetInt(Param::opmode) == MOD_RUN) {
+    bool brake = Param::GetBool(Param::din_brake);
+    bool applyCreep = (idlemode == 1) || (idlemode == 2 && !brake);
+
+    if (applyCreep) {
+      int speed = ABS(Param::GetInt(Param::speed));
+      float idleSpnt = Throttle::CalcIdleSpeed(speed);
+      finalSpnt = MAX(finalSpnt, idleSpnt);
+    }
+  }
 
   Throttle::UdcLimitCommand(finalSpnt, Param::GetFloat(Param::udc));
   Throttle::IdcLimitCommand(finalSpnt, ABS(Param::GetFloat(Param::idc)));
