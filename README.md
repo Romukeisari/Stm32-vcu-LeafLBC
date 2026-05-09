@@ -5,7 +5,10 @@
 Project based on the OpenInverter System by Johannes Huebner to provide a universal VCU (Vehicle Control Unit) for electric vehicle conversion projects. 
 
 Please visit the development thread on the Openinverter Forum for more information : https://openinverter.org/forum/viewtopic.php?f=3&t=1277
-![Screenshot from 2025-01-28 14-17-28](https://github.com/user-attachments/assets/ff066c9e-8c79-470d-aa04-bc3b34198900)
+<img width="1723" height="960" alt="Zom_V1_3" src="https://github.com/user-attachments/assets/9656c54d-8c9a-453b-ab94-809dc201deae" />
+
+
+V1.3 Hardware now released. PDFs and Gerber here on Github, full Kicad 9 design is on Patreon at the 10Eur level.
 
 ## Videos on progress
 
@@ -91,3 +94,5 @@ March 24 : V1.1 Hardware and V2.05A firmware now running in 3 vehicles :
 -BMW E31 with Tesla LDU Drivetrain, Tesla DCDC, ISA Shunt , Chademo Fast Charge
 
 All hardware / software is tested in these vehicles before release. More vehicles with different configuration in progress to ensure as much testing as possible.
+
+Apr 26 : Added Zombie Relay box V1 full kicad project to hardware directory.
