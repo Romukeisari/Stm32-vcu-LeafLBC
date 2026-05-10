@@ -184,13 +184,6 @@ float Throttle::CalcThrottle(int potval, int potIdx, bool brkpedal) {
     potnom = (potnom - throtdead) * (100.0f / (100.0f - throtdead));
   }
 
-  // quadratic linearity blend (NEW)
-  if (linearity < 1.0f && potnom > 0.0f) {
-    float x = potnom / 100.0f;
-    float quad = x * x * (1.0f - linearity);
-    potnom = (quad + x * linearity) * 100.0f;
-  }
-
   //!! pedal command intent coding
 
   PedalPos = potnom; // save comparison next time to check if pedal had moved
@@ -214,7 +207,12 @@ float Throttle::CalcThrottle(int potval, int potIdx, bool brkpedal) {
   {
     potnom = TempAvgPos; // use the averaged pedal
   }
-
+  //! quadratic linearity blend (NEW)
+  if (linearity < 1.0f && potnom > 0.0f) {
+    float x = potnom / 100.0f;
+    float quad = x * x * (1.0f - linearity);
+    potnom = (quad + x * linearity) * 100.0f;
+  }
   // Do clever bits for regen and such.
 
   if (speed < 100 ||

@@ -500,18 +500,6 @@ float ProcessThrottle(int speed) {
   MAX(cruiseThrottle, finalSpnt);
   }
   */
-  // Creep / idle speed floor
-  int idlemode = Param::GetInt(Param::idlemode);
-  if (idlemode > 0 && Param::GetInt(Param::opmode) == MOD_RUN) {
-    bool brake = Param::GetBool(Param::din_brake);
-    bool applyCreep = (idlemode == 1) || (idlemode == 2 && !brake);
-
-    if (applyCreep) {
-      int speed = ABS(Param::GetInt(Param::speed));
-      float idleSpnt = Throttle::CalcIdleSpeed(speed);
-      finalSpnt = MAX(finalSpnt, idleSpnt);
-    }
-  }
 
   Throttle::UdcLimitCommand(finalSpnt, Param::GetFloat(Param::udc));
   Throttle::IdcLimitCommand(finalSpnt, ABS(Param::GetFloat(Param::idc)));
@@ -529,7 +517,18 @@ float ProcessThrottle(int speed) {
 
   finalSpnt = Throttle::RampThrottle(
       finalSpnt); // Move ramping as last step -intro V2.30A
+  //! Creep / idle speed floor
+  int idlemode = Param::GetInt(Param::idlemode);
+  if (idlemode > 0 && Param::GetInt(Param::opmode) == MOD_RUN) {
+    bool brake = Param::GetBool(Param::din_brake);
+    bool applyCreep = (idlemode == 1) || (idlemode == 2 && !brake);
 
+    if (applyCreep) {
+      int speed = ABS(Param::GetInt(Param::speed));
+      float idleSpnt = Throttle::CalcIdleSpeed(speed);
+      finalSpnt = MAX(finalSpnt, idleSpnt);
+    }
+  }
   // make sure the torque percentage is NEVER out of range
   if (finalSpnt < -100.0f)
     finalSpnt = -100.0f;
