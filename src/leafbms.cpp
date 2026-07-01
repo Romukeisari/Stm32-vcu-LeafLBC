@@ -109,6 +109,8 @@ void LeafBMS::DecodeCAN(int id, uint8_t *data) {
     {
       soc = soc * 0.1;
       Param::SetFloat(Param::SOC, soc);
+      Param::SetFloat(Param::SOCFC, soc); // Pass real SOC through to Chademo
+                                          // instead of the static preset
     }
 
     uint16_t IsoTemp = uint16_t(bytes[4] << 2) + uint16_t(bytes[5] >> 6);
