@@ -66,7 +66,11 @@
 		<Unit filename="include/JLR_G2.h" />
 		<Unit filename="include/MCP2515.h" />
 		<Unit filename="include/MGCoolantHeater.h" />
+<<<<<<< HEAD
+		<Unit filename="include/NissLeafMng.h" />
+=======
 		<Unit filename="include/MGgen2V2Lcharger.h" />
+>>>>>>> upstream/master
 		<Unit filename="include/NissanPDM.h" />
 		<Unit filename="include/NoInverter.h" />
 		<Unit filename="include/NoVehicle.h" />
@@ -119,6 +123,7 @@
 		<Unit filename="include/utils.h" />
 		<Unit filename="include/vag_sbox.h" />
 		<Unit filename="include/vehicle.h" />
+		<Unit filename="include/vess_controller.h" />
 		<Unit filename="libopeninv/include/anain.h" />
 		<Unit filename="libopeninv/include/canhardware.h" />
 		<Unit filename="libopeninv/include/canmap.h" />
@@ -169,7 +174,10 @@
 		<Unit filename="src/JLR_G2.cpp" />
 		<Unit filename="src/MCP2515.cpp" />
 		<Unit filename="src/MGCoolantHeater.cpp" />
+<<<<<<< HEAD
+=======
 		<Unit filename="src/MGgen2V2Lcharger.cpp" />
+>>>>>>> upstream/master
 		<Unit filename="src/NissLeafMng.cpp" />
 		<Unit filename="src/NissanPDM.cpp" />
 		<Unit filename="src/OutlanderCanHeater.cpp" />
@@ -204,6 +212,7 @@
 		<Unit filename="src/throttle.cpp" />
 		<Unit filename="src/utils.cpp" />
 		<Unit filename="src/vag_sbox.cpp" />
+		<Unit filename="src/vess_controller.cpp" />
 		<Extensions>
 			<DoxyBlocks>
 				<comment_style block="0" line="0" />

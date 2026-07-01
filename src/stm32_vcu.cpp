@@ -37,10 +37,12 @@
 #include "GS450H.h"
 #include "JLR_G1.h"
 #include "JLR_G2.h"
+#include "KonaVess.h"
 #include "MGCoolantHeater.h"
 #include "NissanPDM.h"
 #include "NoInverter.h"
 #include "NoVehicle.h"
+#include "NoVess.h"
 #include "OutlanderCanHeater.h"
 #include "OutlanderHeartBeat.h"
 #include "TeslaDCDC.h"
@@ -100,6 +102,7 @@
 #include "utils.h"
 #include "vag_sbox.h"
 #include "vehicle.h"
+#include "vess.h"
 #include <libopencm3/stm32/can.h>
 #include <libopencm3/stm32/exti.h>
 #include <libopencm3/stm32/iwdg.h>
@@ -146,8 +149,8 @@ static bool HVILok = 0;
 static volatile unsigned days = 0, hours = 0, minutes = 0, seconds = 0,
                          alarm = 0; // != 0 when alarm is pending
 
-static uint16_t rlyDly = 25;
-static uint16_t prechargeMinTime = 100;
+static uint16_t rlyDly = 10;
+static uint16_t prechargeMinTime = 10;
 
 // Instantiate Classes
 static BMW_E31 e31Vehicle;
@@ -206,6 +209,9 @@ static Shifter shifterNone;
 static RearOutlanderInverter rearoutlanderInv;
 static LinBus *lin;
 static Preheater preheater;
+static NoVess VessNone;
+static KonaVess Vesskona;
+static Vess *selectedVess = &VessNone;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static void Ms200Task(void) {
@@ -394,6 +400,7 @@ static void Ms100Task(void) {
   selectedDCDC->Task100Ms();
   selectedShifter->Task100Ms();
   selectedHeater->Task100Ms();
+  selectedVess->Task100Ms();
   canMap->SendAll();
   canSdo->TriggerTimeout(100);
 
@@ -723,20 +730,20 @@ static void Ms10Task(void) {
         opmode = MOD_PRECHARGE; // proceed to precharge if 1)throttle not
                                 // pressed , 2)ign on , 3)start signal rx, 4) HV
                                 // IL input is grounded if selected.
-        rlyDly = 25;            // Recharge sequence timer
+        rlyDly = 10;            // Recharge sequence timer
         vehicleStartTime = rtc_get_counter_val();
         initbyStart = true;
       }
     }
     if (chargeMode) {
       opmode = MOD_PRECHARGE; // proceed to precharge if charge requested.
-      rlyDly = 25;            // Recharge sequence timer
+      rlyDly = 10;            // Recharge sequence timer
       vehicleStartTime = rtc_get_counter_val();
       initbyCharge = true;
     }
     if (preheater.GetRunPreHeat()) {
       opmode = MOD_PRECHARGE; // proceed to precharge if charge requested.
-      rlyDly = 25;            // Recharge sequence timer
+      rlyDly = 10;            // Recharge sequence timer
       vehicleStartTime = rtc_get_counter_val();
       preheater.SetInitByPreHeat(true);
     }
@@ -771,15 +778,15 @@ static void Ms10Task(void) {
       if (StartSig) {
         opmode = MOD_RUN;
         StartSig = false;                    // reset for next time
-        rlyDly = 25;                         // Recharge sequence timer
+        rlyDly = 10;                         // Recharge sequence timer
         Param::SetInt(Param::TorqDerate, 0); // clear torque derate reason
       } else if (chargeMode) {
         opmode = MOD_CHARGE;
-        rlyDly = 25;                         // Recharge sequence timer
+        rlyDly = 10;                         // Recharge sequence timer
         Param::SetInt(Param::TorqDerate, 0); // clear torque derate reason
       } else if (preheater.GetRunPreHeat()) {
         opmode = MOD_PREHEAT;
-        rlyDly = 25;                         // Recharge sequence timer
+        rlyDly = 10;                         // Recharge sequence timer
         Param::SetInt(Param::TorqDerate, 0); // clear torque derate reason
       }
     }
@@ -1124,6 +1131,25 @@ static void UpdateShifter() {
   canInterface[1]->ClearUserMessages();
 }
 
+static void UpdateVess() {
+  switch (Param::GetInt(Param::Vehiclesound)) {
+  case VehicleSoundModes::NoSound:
+    selectedVess = &VessNone;
+    break;
+
+  case VehicleSoundModes::KonaSound:
+    selectedVess = &Vesskona;
+    break;
+  default:
+    // Default to no vess
+    selectedVess = &VessNone;
+    break;
+  }
+  // This will call SetCanFilters() via the Clear Callback
+  canInterface[0]->ClearUserMessages();
+  canInterface[1]->ClearUserMessages();
+}
+
 // Whenever the user clears mapped can messages or changes the
 // CAN interface of a device, this will be called by the CanHardware module
 static void SetCanFilters() {
@@ -1136,6 +1162,7 @@ static void SetCanFilters() {
   CanHardware *obd2_can = canInterface[Param::GetInt(Param::OBD2Can)];
   CanHardware *dcdc_can = canInterface[Param::GetInt(Param::DCDCCan)];
   CanHardware *heater_can = canInterface[Param::GetInt(Param::HeaterCan)];
+  CanHardware *vess_can = canInterface[Param::GetInt(Param::VessCan)];
 
   selectedInverter->SetCanInterface(inverter_can);
   selectedVehicle->SetCanInterface(vehicle_can);
@@ -1146,6 +1173,7 @@ static void SetCanFilters() {
   selectedShifter->SetCanInterface(vehicle_can);
   canOBD2.SetCanInterface(obd2_can);
   selectedHeater->SetCanInterface(heater_can);
+  selectedVess->SetCanInterface(vess_can);
 
   if (Param::GetInt(Param::ShuntType) == 1 ||
       Param::GetInt(Param::ShuntType) == 4)
@@ -1186,11 +1214,15 @@ void Param::Change(Param::PARAM_NUM paramNum) {
   case Param::GearLvr:
     UpdateShifter();
     break;
+  case Param::Vehiclesound:
+    UpdateVess();
+    break;
   case Param::InverterCan:
   case Param::VehicleCan:
   case Param::ShuntCan:
   case Param::LimCan:
   case Param::ChargerCan:
+  case Param::VessCan:
     canInterface[0]->ClearUserMessages();
     canInterface[1]->ClearUserMessages();
     break;
@@ -1242,9 +1274,10 @@ void Param::Change(Param::PARAM_NUM paramNum) {
   Throttle::throtmin = Param::GetFloat(Param::throtmin);
   Throttle::throtdead = Param::GetFloat(Param::throtdead);
   // Throttle::idcmin = Param::GetFloat(Param::idcmin); //Make them dynamic so
-  // code section can impact Throttle::idcmax = Param::GetFloat(Param::idcmax);
-  // Throttle::udcmin = Param::GetFloat(Param::udcmin);
-  // Throttle::udcmax = Param::GetFloat(Param::udclim);
+  // code section can impact Throttle::idcmax =
+  // Param::GetFloat(Param::idcmax); Throttle::udcmin =
+  // Param::GetFloat(Param::udcmin); Throttle::udcmax =
+  // Param::GetFloat(Param::udclim);
   Throttle::speedLimit = Param::GetInt(Param::revlim);
   Throttle::regenRamp = Param::GetFloat(Param::regenramp);
   Throttle::throttleRamp = Param::GetFloat(Param::throtramp);
@@ -1275,9 +1308,9 @@ void Param::Change(Param::PARAM_NUM paramNum) {
   preheater.ParamsChange();
 }
 
-static bool CanCallback(
-    uint32_t id, uint32_t data[2],
-    uint8_t dlc) // This is where we go when a defined CAN message is received.
+static bool CanCallback(uint32_t id, uint32_t data[2],
+                        uint8_t dlc) // This is where we go when a defined CAN
+                                     // message is received.
 {
   dlc = dlc;
   switch (id) {
@@ -1301,6 +1334,7 @@ static bool CanCallback(
     selectedDCDC->DecodeCAN(id, (uint8_t *)data);
     selectedShifter->DecodeCAN(id, data);
     selectedHeater->DecodeCAN(id, data);
+    selectedVess->DecodeCAN(id, data);
     break;
   }
   return false;
@@ -1413,6 +1447,7 @@ int main(void) {
   UpdateHeater();
   UpdateDCDC();
   UpdateShifter();
+  UpdateVess();
 
   Stm32Scheduler s(TIM4); // We never exit main so it's ok to put it on stack
   scheduler = &s;

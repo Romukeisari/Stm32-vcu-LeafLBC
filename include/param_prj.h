@@ -19,14 +19,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define VER 2.40A
+#define VER 2.40JN
 
 /* Entries must be ordered as follows:
    1. Saveable parameters (id != 0)
    2. Temporary parameters (id = 0)
    3. Display values
  */
-// Next param id (increase when adding new parameter!): 157
+// Next param id (increase when adding new parameter!): 160
 /*              category     name         unit       min     max     default id
  */
 #define PARAM_LIST                                                             \
@@ -37,6 +37,7 @@
   PARAM_ENTRY(CAT_SETUP, interface, CHGINT, 0, 4, 0, 39)                       \
   PARAM_ENTRY(CAT_SETUP, chargemodes, CHGMODS, 0, 6, 0, 37)                    \
   PARAM_ENTRY(CAT_SETUP, BMS_Mode, BMSMODES, 0, 5, 0, 90)                      \
+  PARAM_ENTRY(CAT_SETUP, Vehiclesound, VEHSOUND, 0, 1, 0, 157)                 \
   PARAM_ENTRY(CAT_SETUP, ShuntType, SHNTYPE, 0, 4, 0, 88)                      \
   PARAM_ENTRY(CAT_SETUP, InverterCan, CAN_DEV, 0, 1, 0, 70)                    \
   PARAM_ENTRY(CAT_SETUP, VehicleCan, CAN_DEV, 0, 1, 1, 71)                     \
@@ -48,6 +49,8 @@
   PARAM_ENTRY(CAT_SETUP, CanMapCan, CAN_DEV, 0, 1, 0, 97)                      \
   PARAM_ENTRY(CAT_SETUP, DCDCCan, CAN_DEV, 0, 1, 1, 107)                       \
   PARAM_ENTRY(CAT_SETUP, HeaterCan, CAN_DEV, 0, 1, 1, 138)                     \
+  PARAM_ENTRY(CAT_SETUP, VessCan, CAN_DEV, 0, 1, 1, 158)                       \
+  PARAM_ENTRY(CAT_SETUP, GearRatio, "kph/rpm", 0, 1, 0.05, 159)                \
   PARAM_ENTRY(CAT_SETUP, MotActive, MotorsAct, 0, 3, 0, 129)                   \
   PARAM_ENTRY(CAT_SETUP, ConfigCANOI, ONOFF, 0, 1, 0, 149)                     \
   PARAM_ENTRY(CAT_SETUP, UseRS232, ONOFF, 0, 1, 0, 155)                        \
@@ -267,9 +270,10 @@
   VALUE_ENTRY(DMA_TxComplete, ONOFF, 2120)                                     \
   VALUE_ENTRY(DMA_RxTimeout, "", 2121)                                         \
   VALUE_ENTRY(DMA_ConsecFail, "", 2122)                                        \
-  VALUE_ENTRY(HTM_State, "", 2123)
+  VALUE_ENTRY(HTM_State, "", 2123)                                             \
+  VALUE_ENTRY(VessAlive, ONOFF, 2124)
 
-// Next value Id: 2124
+// Next value Id: 2125
 
 // Dead params
 /*
@@ -283,8 +287,6 @@
 // the format requirements of the "units".
 // clang-format off
 #define VERSTR STRINGIFY(4=VER)
-// clang-format on
-
 #define PININFUNCS                                                             \
   "0=NoneIn, 1=HeatReq, 2=HVRequest, 3=DCFCRequest, 4=Switch_NoRegen,"         \
   "5=HVIL"
@@ -347,6 +349,7 @@
 #define CHGINT "0=Unused, 1=i3LIM, 2=Chademo, 3=CPC, 4=Foccci"
 #define CAN3SPD "0=k33.3, 1=k500, 2=k100"
 #define TRNMODES "0=Manual, 1=Auto"
+#define VEHSOUND     "0=Off, 1=KonaVess"
 #define CAT_AIRCON "Air Conditioning"
 #define CAN_DEV "0=CAN1, 1=CAN2"
 #define CAT_THROTTLE "Throttle"
@@ -379,15 +382,15 @@
 #define FIRST_IO_PARAM Param::Out1Func
 #define SEC_IO_PARAM Param::PB1InFunc
 #define FIRST_AI_PARAM Param::GPA1Func
-enum modes {
-  MOD_OFF = 0,
-  MOD_RUN,
-  MOD_PRECHARGE,
-  MOD_PCHFAIL,
-  MOD_CHARGE,
-  MOD_PREHEAT,
-  MOD_LAST
-};
+        enum modes {
+          MOD_OFF = 0,
+          MOD_RUN,
+          MOD_PRECHARGE,
+          MOD_PCHFAIL,
+          MOD_CHARGE,
+          MOD_PREHEAT,
+          MOD_LAST
+        };
 
 enum ctyps { OFF = 0, AC = 1, DCFC = 2, DCEXT = 4 };
 
@@ -521,5 +524,7 @@ enum ccs_status {
 };
 
 enum can_devices { CAN_DEV1 = 0, CAN_DEV2 = 1 };
+
+enum VehicleSoundModes { NoSound = 0, KonaSound = 1 };
 
 extern const char *errorListString;
