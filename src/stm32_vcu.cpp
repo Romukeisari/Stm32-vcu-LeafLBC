@@ -334,6 +334,15 @@ static void Ms200Task(void) {
       RunChg = false; // end charge
       ChgLck = true;  // set charge lockout flag
     }
+
+    if (Param::GetInt(Param::BMS_Mode) == 4 &&
+        Param::GetFloat(Param::SOC) >=
+            Param::GetFloat(Param::CCS_SOCLim)) // Leaf LBC reports real SOC,
+                                                // terminate on user SOC limit
+    {
+      RunChg = false; // end charge
+      ChgLck = true;  // set charge lockout flag
+    }
   }
   // End Charge Term Logic
 
