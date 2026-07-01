@@ -27,6 +27,7 @@
 #define ZE1_BATTERY 2  // 2018+ ZE1
 static uint8_t LEAF_battery_Type = ZE0_BATTERY;
 static int temperature = 0;
+static bool lbcDataValid = false;
 
 void LeafBMS::SetCanInterface(CanHardware *can) {
   can->RegisterUserMessage(0x1DB); // Leaf BMS message 10ms
@@ -55,8 +56,8 @@ void LeafBMS::DecodeCAN(int id, uint8_t *data) {
     uint16_t udc = uint16_t(bytes[2] << 2) + uint16_t(bytes[3] >> 6);
     // bool interlock = (bytes[3] & (1 << 3)) >> 3;
     // bool full = (bytes[3] & (1 << 4)) >> 4;
-    
-    if (Param::GetInt(Param::ShuntType) == 0) { 
+
+    if (Param::GetInt(Param::ShuntType) == 0) {
       // Only populate if no shunt is used
       float BattCur = cur / 2;
       float BattVoltage = udc / 2;
@@ -64,9 +65,10 @@ void LeafBMS::DecodeCAN(int id, uint8_t *data) {
       if (BattVoltage < 450) {
         Param::SetFloat(Param::udc2, BattVoltage);
       }
-      if (BattVoltage > 200) {
+      if (BattVoltage > 200 && BattVoltage < 450) {
         Param::SetFloat(Param::udcsw, BattVoltage - 20);
         // Set for precharging based on actual voltage
+        lbcDataValid = true;
       }
       float kw = (BattVoltage * BattCur) / 1000;
       // calculate power and post to parameter database
@@ -175,6 +177,10 @@ void LeafBMS::DecodeCAN(int id, uint8_t *data) {
     break;
   }
 }
+
+void LeafBMS::DeInit() { lbcDataValid = false; }
+
+bool LeafBMS::HasValidData() { return lbcDataValid; }
 
 bool LeafBMS::isMessageCorrupt(uint8_t *data) {
   uint8_t crc = 0;

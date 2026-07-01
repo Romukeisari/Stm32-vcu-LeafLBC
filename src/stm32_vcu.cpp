@@ -766,8 +766,8 @@ static void Ms10Task(void) {
     if (rlyDly != 0)
       rlyDly--; // here we are going to pause before energising precharge to
                 // prevent too many contactors pulling amps at the same time
-    if (rlyDly == 0)
-      DigIo::prec_out.Set(); // commence precharge
+    if (rlyDly == 0 && selectedBMS->HasValidData())
+      DigIo::prec_out.Set(); // commence precharge once BMS has valid voltage
     if (prechargeMinTime != 0)
       prechargeMinTime--; // 1 second minimum precharge time
     if ((prechargeMinTime == 0) &&

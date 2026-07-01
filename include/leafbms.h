@@ -25,6 +25,8 @@ class LeafBMS : public BMS {
 public:
   void SetCanInterface(CanHardware *can) override;
   void DecodeCAN(int id, uint8_t *data) override;
+  void DeInit() override;
+  bool HasValidData() override;
 
 private:
   bool isMessageCorrupt(uint8_t *data);

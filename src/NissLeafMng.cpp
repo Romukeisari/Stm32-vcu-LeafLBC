@@ -383,17 +383,13 @@ void NissLeafMng::Task100Ms() {
 
   if (SendCan == false) // If not sending CAN check if we need to start
   {
-    if (Param::GetInt(Param::CanAct) ==
-        1) // External CAN wake trigger (currently only PDM)
-    {
-      // SendCan = true;
-      // SleepCount = 100; // 10s shut down counter reset
-    }
-    if (opmode == MOD_CHARGE ||
-        opmode == MOD_RUN) // If we get put into RUN or Charge mode start CAN
-    {
+    // Only start VCM CAN after precharge is complete.
+    // Starting earlier wakes the PDM DC-DC through the precharge resistor,
+    // disturbing the voltage rise. The LBC wakes autonomously from 12V and
+    // broadcasts 0x1DB independently - it does not need VCM frames first.
+    if (opmode == MOD_CHARGE || opmode == MOD_RUN) {
       SendCan = true;
-      SleepCount = 15; // 1.5s shut down counter reset
+      SleepCount = 100; // 10s shut down counter reset
     }
   }
 
