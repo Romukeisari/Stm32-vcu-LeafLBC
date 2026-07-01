@@ -190,12 +190,26 @@ void FCChademo::Task200Ms() {
     // Note: No need to worry about bms type as if none selected sets to 999.
     // If chargeLim==0 chademo session will end.
 
-    if (udc < udcspnt && controlledCurrent <= chargeLim)
-      controlledCurrent++;
-    if (udc > udcspnt && controlledCurrent > 0)
-      controlledCurrent--;
-    if (controlledCurrent > chargeLim)
-      controlledCurrent--;
+    if (Param::GetInt(Param::BMS_Mode) != 4) {
+      if (udc < udcspnt && controlledCurrent <= chargeLim)
+        controlledCurrent++;
+      if (udc > udcspnt && controlledCurrent > 0)
+        controlledCurrent--;
+      if (controlledCurrent > chargeLim)
+        controlledCurrent--;
+    } else {
+      // Leaf LBC reports real SOC, terminate charge on user set SOC limit
+      if (Param::GetFloat(Param::SOC) < Param::GetFloat(Param::CCS_SOCLim) &&
+          controlledCurrent <= chargeLim)
+        controlledCurrent++;
+      if (Param::GetFloat(Param::SOC) > Param::GetFloat(Param::CCS_SOCLim) &&
+          controlledCurrent > 0)
+        controlledCurrent--;
+      if (udc > udcspnt && controlledCurrent > 0)
+        controlledCurrent--;
+      if (controlledCurrent > chargeLim)
+        controlledCurrent--;
+    }
 
     FCChademo::SetChargeCurrent(controlledCurrent);
     // TODO: fix this to not false trigger
